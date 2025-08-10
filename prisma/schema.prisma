@@ -14,14 +14,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Test Models
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id
   email     String   @unique
-  name      String?
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+  role      String   @default("Care Worker")
+  position  String?
+
   @@map("users")
 }
 

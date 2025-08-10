@@ -1,11 +1,11 @@
 'use client'
+
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
 
 const SignUpPage = () => {
-
     const [email, setEmail] = useState<string>('')
     const [password, setPassword] = useState<string>('')
     const [confirmPassword, setConfirmPassword] = useState<string>('')
@@ -36,10 +36,10 @@ const SignUpPage = () => {
         const toastContainer = document.createElement('div');
         toastContainer.className = 'toast toast-top toast-center';
         toastContainer.innerHTML = `
-            <div class="alert ${alertClass}">
-                <span>${message}</span>
-            </div>
-        `;
+      <div class="alert ${alertClass}">
+        <span>${message}</span>
+      </div>
+    `;
 
         document.body.appendChild(toastContainer);
 
@@ -86,35 +86,53 @@ const SignUpPage = () => {
     const passwordValidation = getPasswordValidation();
     const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-    // First, fix your checkUserExists function to return null on API failure
-    const checkUserExists = async (email: string): Promise<boolean | null> => {
-        try {
-            console.log('🔍 Checking if user exists via API:', email);
-
-            const res = await fetch('/api/check-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-
-            if (!res.ok) {
-                console.error('API returned error status:', res.status);
-                // Return null to indicate API failure, not "user doesn't exist"
-                return null;
-            }
-
-            const data = await res.json();
-            console.log('📊 API User exists check result:', data.exists);
-            return !!data.exists;
-
-        } catch (err) {
-            console.error('💥 Exception in user existence check API call:', err);
-            // Return null to indicate failure, not false
-            return null;
+    async function checkUserExists(email: string): Promise<boolean> {
+        const query = `
+      query CheckUser($email: String!) {
+        userByEmail(email: $email) {
+          id
         }
-    };
+      }
+    `;
 
-    // Then update your handleSignUp function
+        const variables = { email };
+
+        const res = await fetch('/api/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables }),
+        });
+
+        const json = await res.json();
+
+        return !!json.data.userByEmail;
+    }
+
+    async function addUserToPrisma(id: string, email: string) {
+        const mutation = `
+      mutation CreateUser($data: CreateUserInput!) {
+        createUser(data: $data) {
+          id
+          email
+        }
+      }
+    `;
+
+        const variables = {
+            data: { id, email }
+        };
+
+        const res = await fetch('/api/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: mutation, variables }),
+        });
+
+        const json = await res.json();
+
+        return json.data.createUser;
+    }
+
     const handleSignUp = async () => {
         if (!email || !password || !confirmPassword) {
             showToast('Please fill in all fields.', 'warning');
@@ -139,147 +157,70 @@ const SignUpPage = () => {
         setPasswordLoading(true);
 
         try {
-            console.log('🚀 Starting signup process for:', email);
+            const exists = await checkUserExists(email.trim().toLowerCase());
 
-            const userExists = await checkUserExists(email);
-
-            // Handle API failure case
-            if (userExists === null) {
-                console.error('❌ Could not check if user exists due to API error');
-                showToast('Unable to verify account status. Please try again later.', 'error');
+            if (exists) {
+                showToast('User with this email already exists.', 'error');
+                setPasswordLoading(false);
                 return;
             }
-
-            if (userExists === true) {
-                console.log('👤 User already exists in database');
-                showToast('Account already exists with this email. Please sign in instead.', 'error');
-                setTimeout(() => {
-                    router.push('/signin');
-                }, 2000);
-                return;
-            }
-
-            console.log('✅ User does not exist, proceeding with signup');
 
             const { data, error } = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
+                options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback`
+                }
             });
 
-            console.log('📊 Supabase Signup Response Data:', data);
-            console.log('❌ Supabase Signup Error:', error);
-
             if (error) {
-                console.log('🔍 Signup Error Details:');
-                console.log('  - Message:', error.message);
-                console.log('  - Status:', error.status);
-                console.log('  - Name:', error.name);
-
-                if (error.message.includes('User already registered') ||
-                    error.message.includes('already registered') ||
-                    error.message.includes('already exists') ||
-                    error.message.includes('email_address_taken') ||
-                    error.message.includes('duplicate') ||
-                    error.message.includes('Email rate limit exceeded') ||
-                    error.status === 422 ||
-                    error.status === 429) {
-                    console.log('🔄 Detected duplicate/existing user error from Supabase');
-                    showToast('Account already exists with this email. Please sign in instead.', 'error');
-
-                } else if (error.message.includes('Password should be at least')) {
-                    console.log('🔒 Password requirement error');
-                    showToast('Password does not meet minimum requirements.', 'error');
-                } else if (error.message.includes('Invalid email')) {
-                    console.log('📧 Invalid email error');
-                    showToast('Please enter a valid email address.', 'warning');
-                } else if (error.message.includes('signup_disabled')) {
-                    console.log('🚫 Signup disabled error');
-                    showToast('Account registration is currently disabled.', 'error');
-                } else if (error.message.includes('weak_password')) {
-                    console.log('🔐 Weak password error');
-                    showToast('Password is too weak. Please choose a stronger password.', 'error');
-                } else {
-                    console.log('❓ Unknown error type, showing generic message');
-                    showToast(`Sign up failed: ${error.message}`, 'error');
-                }
+                showToast(`Sign up failed: ${error.message}`, 'error');
+                setPasswordLoading(false);
                 return;
             }
 
-            if (data.user) {
-                console.log('✅ User created successfully:', data.user);
-                console.log('📧 User email:', data.user.email);
-                console.log('🆔 User ID:', data.user.id);
-                console.log('📅 Created at:', data.user.created_at);
-                console.log('🔐 Email confirmed:', data.user.email_confirmed_at);
-
-                showToast('Account created successfully! Please check your email to verify your account.', 'success');
-
-            } else {
-                console.log('⚠️ No user in response but no error either');
-                showToast('Something unexpected happened. Please try again.', 'warning');
+            if (!data.user) {
+                showToast('Please check your email to verify your account.', 'warning');
+                setPasswordLoading(false);
+                return;
             }
 
-        } catch (err: any) {
-            console.error('💥 Unexpected error during signup:', err);
-            console.log('Error name:', err.name);
-            console.log('Error message:', err.message);
+            await addUserToPrisma(data.user.id, data.user.email!);
 
-            if (err.name === 'AbortError') {
-                showToast('Request timed out. Please try again.', 'error');
-            } else if (err.message?.includes('fetch')) {
-                showToast('Network error. Please check your connection and try again.', 'error');
-            } else {
-                showToast('An unexpected error occurred. Please try again.', 'error');
-            }
+            showToast('Account created! Please check your email to verify your account.', 'success');
+
+        } catch (err) {
+            console.error('Unexpected error during signup:', err);
+            showToast('An unexpected error occurred. Please try again.', 'error');
         } finally {
             setPasswordLoading(false);
         }
     };
 
+
     const handleGoogleSignUp = async () => {
-        setGoogleLoading(true)
-
+        setGoogleLoading(true);
         try {
-            console.log('🔗 Starting Google OAuth signup');
-
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
+                    redirectTo: `${window.location.origin}/auth/callback`, 
                 },
-            })
+            });
 
             if (error) {
-                console.error('🔗❌ Google sign up error:', error);
-                console.log('Google error details:', JSON.stringify(error, null, 2));
-
-                if (error.message.includes('Provider not enabled')) {
-                    showToast('Google sign-up is not enabled. Please contact support.', 'error');
-                } else if (error.message.includes('signup_disabled')) {
-                    showToast('Google sign-up is currently disabled.', 'error');
-                } else {
-                    showToast(`Google sign up failed: ${error.message}`, 'error');
-                }
-                setGoogleLoading(false)
-                return
+                showToast(`Google sign up failed: ${error.message}`, 'error');
             }
-
-            console.log('🔗✅ Google OAuth initiated successfully');
-
-        } catch (err: any) {
-            console.error('🔗💥 Unexpected Google OAuth error:', err);
-            if (err.name === 'AbortError') {
-                showToast('Request timed out. Please try again.', 'error');
-            } else if (err.message?.includes('fetch')) {
-                showToast('Network error. Please check your connection and try again.', 'error');
-            } else {
-                showToast('Failed to sign up with Google. Please try again.', 'error');
-            }
-            setGoogleLoading(false)
+        } catch (err) {
+            console.error('Google OAuth error:', err);
+            showToast('Failed to sign up with Google. Please try again.', 'error');
+        } finally {
+            setGoogleLoading(false);
         }
-    }
+    };
 
-    const isAnyLoading = passwordLoading || googleLoading
+
+    const isAnyLoading = passwordLoading || googleLoading;
 
     return (
         <main className='flex'>
@@ -319,7 +260,6 @@ const SignUpPage = () => {
                                 <div>
                                     <span className="font-medium text-sm">Password</span>
                                 </div>
-
                                 <label className="floating-label">
                                     <span>Your Password</span>
                                     <input
@@ -334,7 +274,6 @@ const SignUpPage = () => {
                                         required
                                     />
                                 </label>
-
                                 {password && focusedInput === 'password' && (
                                     <div className="absolute left-full ml-4 top-12 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64">
                                         <div className="text-xs font-medium text-gray-700 mb-2">Password Requirements:</div>
@@ -370,7 +309,6 @@ const SignUpPage = () => {
                                 <div>
                                     <span className="font-medium text-sm">Confirm Password</span>
                                 </div>
-
                                 <label className="floating-label">
                                     <span>Confirm Your Password</span>
                                     <input
@@ -385,7 +323,6 @@ const SignUpPage = () => {
                                         required
                                     />
                                 </label>
-
                                 {confirmPassword && focusedInput === 'confirmPassword' && (
                                     <div className="absolute left-full ml-4 top-12 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-48">
                                         <div className={`text-xs flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : 'text-red-600'}`}>
@@ -445,7 +382,6 @@ const SignUpPage = () => {
                 </div>
             </section>
             <section className='w-3/5 bg-base-200 h-screen'>
-
             </section>
         </main>
     )

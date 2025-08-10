@@ -1,10 +1,13 @@
 -- CreateTable
 CREATE TABLE "public"."users" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
-    "name" TEXT,
+    "first_name" TEXT,
+    "last_name" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'Care Worker',
+    "position" TEXT,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );

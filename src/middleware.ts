@@ -12,15 +12,12 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Uncomment for debugging
-  console.log('Middleware pathname:', pathname)
-  console.log('Session:', !!session)
+  //console.log('Middleware pathname:', pathname)
+  //console.log('Session:', !!session)
 
-  // Public paths (no auth required)
-  const publicPaths = ['/signin', '/signup']
+  const publicPaths = ['/signin', '/signup', '/auth/callback']
   const isPublicPath = publicPaths.includes(pathname)
 
-  // Redirect to signin if no session and accessing protected routes
   if (!session && !isPublicPath) {
     return NextResponse.redirect(new URL('/signin', request.url))
   }
@@ -28,7 +25,6 @@ export async function middleware(request: NextRequest) {
   if (session) {
     const userRole = session.user.user_metadata?.role || 'worker'
 
-    // Redirect logged-in users away from signin/signup
     if (pathname === '/signin' || pathname === '/signup') {
       if (userRole === 'manager') {
         return NextResponse.redirect(new URL('/manager', request.url))
@@ -37,17 +33,14 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // If manager goes to / redirect to manager/dashboard
     if (pathname === '/' && userRole === 'manager') {
       return NextResponse.redirect(new URL('/manager', request.url))
     }
 
-    // If manager tries to access /dashboard, redirect to manager/dashboard
     if (pathname === '/dashboard' && userRole === 'manager') {
       return NextResponse.redirect(new URL('/manager/dashboard', request.url))
     }
-
-    // Prevent workers from accessing manager routes
+    
     if (pathname.startsWith('/manager') && userRole !== 'manager') {
       return NextResponse.redirect(new URL('/', request.url))
     }

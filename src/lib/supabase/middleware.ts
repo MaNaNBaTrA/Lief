@@ -12,7 +12,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/dashboard') && !session) {
+  if (pathname.startsWith('/') && !session) {
     return NextResponse.redirect(new URL('/signin', request.url))
   }
 
