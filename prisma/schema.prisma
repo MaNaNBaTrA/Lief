@@ -19,11 +19,12 @@ model User {
   email     String   @unique
   firstName String?  @map("first_name")
   lastName  String?  @map("last_name")
+  number    String?  
+  address   String?  
+  imageUrl  String?  @map("image_url")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   role      String   @default("Care Worker")
-  position  String?
 
   @@map("users")
 }
-

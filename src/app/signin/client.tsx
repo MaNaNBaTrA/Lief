@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
 
-const SignInPage = () => {
+const SignInPage : React.FC = () => {
 
     const [checked, setChecked] = useState<boolean>(false)
     const [email, setEmail] = useState<string>('')

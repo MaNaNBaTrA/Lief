@@ -8,3 +8,15 @@
     @apply flex justify-center items-center;
   }
 }
+
+@theme {
+  --color-brand: #00b0aa;
+  --color-bg: #f5f8fa;
+  --color-border : #e6edf2;
+  --color-text : #345e54;
+  --color-stext : #7e7e7e;
+  --color-bzero : #dff1fb;
+  --color-bone : #ecf7d5;
+  --color-btwo:#fff5d3;
+  --color-bthree : #ffe3df;
+}

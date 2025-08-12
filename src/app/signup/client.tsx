@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
 
-const SignUpPage = () => {
+const SignUpPage : React.FC = () => {
     const [email, setEmail] = useState<string>('')
     const [password, setPassword] = useState<string>('')
     const [confirmPassword, setConfirmPassword] = useState<string>('')

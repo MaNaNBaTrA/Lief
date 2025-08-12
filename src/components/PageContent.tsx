@@ -1,22 +1,27 @@
 'use client'
-import LogoutButton from '@/components/logout-button'
-import { useAuth } from '@/context/authContext'
+import Analytics from "@/ui/Analytics";
+import Detail from "./Detail";
+import Navbar from "./Navbar";
+import Chart from "@/ui/Chart";
+import LineChart from "@/ui/LineChart";
 
-export default function PageContent() {
-  const { user } = useAuth()
-
+const Home: React.FC = () => {
   return (
-    <div style={{ padding: '2rem', background: '#e0f7fa', borderRadius: '10px', maxWidth: '600px', margin: '2rem auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontFamily: 'sans-serif' }}>
+    <div className="bg-bg w-screen h-screen overflow-x-hidden">
+      <Navbar />
+      <div className="flex  flex-col items-center gap-4">
+        <Detail />
 
-      <p style={{ marginTop: '1rem', fontSize: '1rem', color: '#555' }}>Email:</p>
-      <code style={{ display: 'block', padding: '0.5rem', background: '#ffffff', border: '1px solid #ccc', borderRadius: '5px', marginTop: '0.5rem', fontFamily: 'monospace' }}>{user?.email}</code>
-      
-      <p style={{ marginTop: '1rem', fontSize: '1rem', color: '#555' }}>Your unique user ID:</p>
-      <code style={{ display: 'block', padding: '0.5rem', background: '#ffffff', border: '1px solid #ccc', borderRadius: '5px', marginTop: '0.5rem', fontFamily: 'monospace' }}>{user?.id}</code>
-      
-      <div style={{ marginTop: '2rem' }}>
-        <LogoutButton />
+        <div className=' w-19/20 flex justify-between mb-6 gap-4'>
+          <div className=" flex flex-col w-[45%] gap-4">
+            <Analytics />
+            <LineChart/>
+          </div>
+          <Chart />
+        </div>
       </div>
     </div>
   )
 }
+
+export default Home;
