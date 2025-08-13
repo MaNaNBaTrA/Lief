@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { LogOut, UserRoundCheck, User } from 'lucide-react'
+import { LogOut, UserRoundCheck, User, Clock, MapPin } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { User as SupabaseUser } from '@supabase/supabase-js'
-
 
 interface UserProfile {
     id: string
@@ -14,11 +13,36 @@ interface UserProfile {
     firstName?: string | null
     lastName?: string | null
     imageUrl?: string | null
+    totalWorkingHours?: string | null
+}
+
+interface OfficeLocation {
+    id: string
+    name: string
+    latitude: number
+    longitude: number
+}
+
+interface Attendance {
+    userId: string
+    checkInTime?: string | null
+    checkOutTime?: string | null
+    checkInNote?: string | null
+    checkOutNote?: string | null
+    date: string
+    isHoliday: boolean
+    totalHoursWorked?: string
+    overtime?: string
+    negativeWorkingHours?: string
 }
 
 interface GraphQLResponse {
     data?: {
         getUserById?: UserProfile | null
+        getAttendance?: Attendance | null
+        createAttendance?: Attendance
+        updateAttendance?: Attendance
+        getAllOfficeLocations?: OfficeLocation[]
     }
     errors?: Array<{
         message: string
@@ -27,6 +51,9 @@ interface GraphQLResponse {
     }>
 }
 
+const DEFAULT_TIMEZONE = 'Asia/Kolkata'
+const ALLOWED_DISTANCE_KM = 2
+
 const Navbar: React.FC = () => {
     const router = useRouter()
     const [showPopup, setShowPopup] = useState<boolean>(false)
@@ -34,29 +61,364 @@ const Navbar: React.FC = () => {
     const [user, setUser] = useState<SupabaseUser | null>(null)
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
     const [loading, setLoading] = useState<boolean>(true)
+    const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false)
+    const [currentAttendance, setCurrentAttendance] = useState<Attendance | null>(null)
+    const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
+    const [locationError, setLocationError] = useState<string>('')
+    const [isLocationLoading, setIsLocationLoading] = useState<boolean>(false)
+    const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([])
+    const [currentOffice, setCurrentOffice] = useState<OfficeLocation | null>(null)
+    const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    useEffect(() => {
-        const getCurrentUser = async (): Promise<void> => {
-            try {
-                const { data: { user }, error } = await supabase.auth.getUser()
-                if (error) {
-                    console.error('Error getting user:', error.message)
-                    return
-                }
-                
-                if (user) {
-                    setUser(user)
-                    await fetchUserProfile(user.id)
-                }
-            } catch (error) {
-                console.error('Error:', error)
-            } finally {
-                setLoading(false)
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+        const R = 6371
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLon = (lon2 - lon1) * Math.PI / 180
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
+
+    const getCurrentLocation = (): Promise<{ lat: number; lng: number }> => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported by this browser'))
+                return
             }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    })
+                },
+                (error) => {
+                    let errorMessage = 'Unable to get location'
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = 'Location access denied by user'
+                            break
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information unavailable'
+                            break
+                        case error.TIMEOUT:
+                            errorMessage = 'Location request timed out'
+                            break
+                    }
+                    reject(new Error(errorMessage))
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                }
+            )
+        })
+    }
+
+    const fetchOfficeLocations = async (): Promise<void> => {
+        try {
+            const response = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: `
+                    query GetAllOfficeLocations {
+                        getAllOfficeLocations {
+                            id
+                            name
+                            latitude
+                            longitude
+                        }
+                    }
+                `
+                })
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            const result: GraphQLResponse = await response.json()
+
+            if (result.errors) {
+                console.error('GraphQL errors:', result.errors)
+                return
+            }
+
+            if (result.data?.getAllOfficeLocations) {
+                const offices = result.data.getAllOfficeLocations
+                setOfficeLocations(offices)
+                if (offices.length > 0) {
+                    setCurrentOffice(offices[0])
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching office locations:', error)
+        }
+    }
+
+    const initializeLocation = async (): Promise<void> => {
+        setIsLocationLoading(true)
+        setLocationError('')
+
+        try {
+            await fetchOfficeLocations()
+            const location = await getCurrentLocation()
+            setCurrentLocation(location)
+        } catch (error) {
+            setLocationError((error as Error).message)
+        } finally {
+            setIsLocationLoading(false)
+        }
+    }
+
+    const isWithinPerimeter = async (): Promise<boolean> => {
+        setIsLocationLoading(true)
+        setLocationError('')
+
+        try {
+            const location = await getCurrentLocation()
+            setCurrentLocation(location)
+
+            if (officeLocations.length === 0) {
+                throw new Error('No office locations configured')
+            }
+
+            for (const office of officeLocations) {
+                const distance = calculateDistance(
+                    location.lat,
+                    location.lng,
+                    office.latitude,
+                    office.longitude
+                )
+
+                if (distance <= ALLOWED_DISTANCE_KM) {
+                    setCurrentOffice(office)
+                    return true
+                }
+            }
+
+            return false
+        } catch (error) {
+            setLocationError((error as Error).message)
+            return false
+        } finally {
+            setIsLocationLoading(false)
+        }
+    }
+
+    const getTodayDateString = (): string => {
+        const today = new Date()
+        const localDate = new Date(today.toLocaleString("en-US", { timeZone: DEFAULT_TIMEZONE }))
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const monthName = monthNames[localDate.getMonth()]
+        const dayNumber = localDate.getDate()
+        return `${monthName} ${dayNumber}`
+    }
+
+    const getCurrentTimeForStorage = (): string => {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth()
+        const date = now.getDate()
+        const hours = now.getHours()
+        const minutes = now.getMinutes()
+        const seconds = now.getSeconds()
+        const localAsUTC = new Date(Date.UTC(year, month, date, hours, minutes, seconds))
+        return localAsUTC.toISOString()
+    }
+
+    const getCurrentTimeForDisplay = (): string => {
+        return new Date().toLocaleString("en-US", {
+            timeZone: DEFAULT_TIMEZONE,
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        })
+    }
+
+    const formatTimeForDisplay = (utcTime: string): string => {
+        if (!utcTime) return ''
+        const date = new Date(utcTime)
+        return date.toLocaleString("en-US", {
+            timeZone: DEFAULT_TIMEZONE,
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        })
+    }
+
+    const calculateHoursWorked = (checkInTime: string, checkOutTime?: string): number => {
+        try {
+            if (!checkInTime || typeof checkInTime !== 'string' || checkInTime.trim() === '') {
+                return 0
+            }
+
+            const checkIn = new Date(checkInTime)
+            const checkOut = checkOutTime ? new Date(checkOutTime) : new Date()
+
+            if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+                return 0
+            }
+
+            const diffMs = checkOut.getTime() - checkIn.getTime()
+            const hours = diffMs / (1000 * 60 * 60)
+            return Math.max(0, hours)
+        } catch (error) {
+            return 0
+        }
+    }
+
+    const formatHoursToTime = (hours: number): string => {
+        if (!hours || isNaN(hours) || hours <= 0) {
+            return "0h 0m 0s"
         }
 
-        getCurrentUser()
-    }, [])
+        const totalSeconds = Math.floor(Math.abs(hours) * 3600)
+        const hrs = Math.floor(totalSeconds / 3600)
+        const mins = Math.floor((totalSeconds % 3600) / 60)
+        const secs = totalSeconds % 60
+
+        return `${hrs}h ${mins}m ${secs}s`
+    }
+
+    const updateWorkingHours = async () => {
+        if (!isCheckedIn || !currentAttendance || !user || !currentAttendance.checkInTime) {
+            return
+        }
+
+        try {
+            const totalHours = calculateHoursWorked(currentAttendance.checkInTime)
+            const totalHoursFormatted = formatHoursToTime(totalHours)
+
+            const response = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: `
+                        mutation UpdateAttendance($userId: String!, $date: String!, $data: UpdateAttendanceInput!) {
+                            updateAttendance(userId: $userId, date: $date, data: $data) {
+                                userId
+                                totalHoursWorked
+                                checkInTime
+                                checkOutTime
+                            }
+                        }
+                    `,
+                    variables: {
+                        userId: user.id,
+                        date: currentAttendance.date,
+                        data: {
+                            totalHoursWorked: totalHoursFormatted
+                        }
+                    }
+                })
+            })
+
+            if (response.ok) {
+                const result: GraphQLResponse = await response.json()
+                if (!result.errors && result.data?.updateAttendance) {
+                    const updatedAttendance = result.data.updateAttendance
+                    setCurrentAttendance(prev => prev ? {
+                        ...prev,
+                        totalHoursWorked: updatedAttendance.totalHoursWorked || "0h 0m 0s"
+                    } : null)
+                }
+            }
+        } catch (error) {
+            console.error('Error updating working hours:', error)
+        }
+    }
+
+    const startWorkingHoursInterval = () => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+        }
+        intervalRef.current = setInterval(updateWorkingHours, 10 * 60 * 1000)
+    }
+
+    const stopWorkingHoursInterval = () => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+        }
+    }
+
+    const checkTodayAttendance = async (userId: string): Promise<void> => {
+        try {
+            const todayDate = getTodayDateString()
+
+            const response = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: `
+                        query GetAttendance($userId: String!, $date: String!) {
+                            getAttendance(userId: $userId, date: $date) {
+                                userId
+                                checkInTime
+                                checkOutTime
+                                checkInNote
+                                checkOutNote
+                                date
+                                isHoliday
+                                totalHoursWorked
+                                overtime
+                                negativeWorkingHours
+                            }
+                        }
+                    `,
+                    variables: {
+                        userId: userId,
+                        date: todayDate
+                    }
+                })
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+
+            const result: GraphQLResponse = await response.json()
+
+            if (result.errors) {
+                console.error('GraphQL errors:', result.errors)
+                return
+            }
+
+            if (result.data?.getAttendance) {
+                const attendance = result.data.getAttendance
+                setCurrentAttendance(attendance)
+
+                if (attendance.checkInTime && !attendance.checkOutTime) {
+                    setIsCheckedIn(true)
+                    startWorkingHoursInterval()
+                } else {
+                    setIsCheckedIn(false)
+                }
+            }
+        } catch (error) {
+            console.error('Error checking today\'s attendance:', error)
+        }
+    }
 
     const fetchUserProfile = async (userId: string): Promise<void> => {
         try {
@@ -74,6 +436,7 @@ const Navbar: React.FC = () => {
                                 firstName
                                 lastName
                                 imageUrl
+                                totalWorkingHours
                             }
                         }
                     `,
@@ -88,13 +451,8 @@ const Navbar: React.FC = () => {
             }
 
             const result: GraphQLResponse = await response.json()
-            
-            if (result.errors) {
-                console.error('GraphQL errors:', result.errors)
-                return
-            }
-            
-            if (result.data?.getUserById) {
+
+            if (!result.errors && result.data?.getUserById) {
                 setUserProfile(result.data.getUserById)
             }
         } catch (error) {
@@ -102,7 +460,158 @@ const Navbar: React.FC = () => {
         }
     }
 
+    const handleCheckIn = async (): Promise<void> => {
+        if (isCheckedIn) {
+            setShowPopup(true)
+            return
+        }
+
+        if (currentAttendance && currentAttendance.checkOutTime) {
+            return
+        }
+
+        const withinPerimeter = await isWithinPerimeter()
+
+        if (!withinPerimeter) {
+            let nearestOfficeInfo = ''
+            if (currentLocation && officeLocations.length > 0) {
+                let nearestOffice = officeLocations[0]
+                let nearestDistance = calculateDistance(
+                    currentLocation.lat,
+                    currentLocation.lng,
+                    nearestOffice.latitude,
+                    nearestOffice.longitude
+                )
+
+                for (const office of officeLocations) {
+                    const distance = calculateDistance(
+                        currentLocation.lat,
+                        currentLocation.lng,
+                        office.latitude,
+                        office.longitude
+                    )
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance
+                        nearestOffice = office
+                    }
+                }
+
+                nearestOfficeInfo = `Nearest office: ${nearestOffice.name} (${nearestDistance.toFixed(2)}km away)`
+            }
+
+            alert(`You are outside all office perimeters. Check-in is only allowed within ${ALLOWED_DISTANCE_KM}km of any office location.\n\n${nearestOfficeInfo}`)
+            return
+        }
+
+        setShowPopup(true)
+    }
+
+    const handlePopupSubmit = async (): Promise<void> => {
+        if (!user || !userProfile) return
+
+        try {
+            const todayDate = getTodayDateString()
+            const currentTime = getCurrentTimeForStorage()
+
+            if (isCheckedIn) {
+                if (!currentAttendance) return
+
+                const response = await fetch('/api/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: `
+                            mutation UpdateAttendance($userId: String!, $date: String!, $data: UpdateAttendanceInput!) {
+                                updateAttendance(userId: $userId, date: $date, data: $data) {
+                                    userId
+                                    checkOutTime
+                                    checkOutNote
+                                    totalHoursWorked
+                                    overtime
+                                    negativeWorkingHours
+                                }
+                            }
+                        `,
+                        variables: {
+                            userId: user.id,
+                            date: todayDate,
+                            data: {
+                                checkOutTime: currentTime,
+                                checkOutNote: note || null,
+                                userLatitude: currentLocation?.lat,
+                                userLongitude: currentLocation?.lng
+                            }
+                        }
+                    })
+                })
+
+                const result: GraphQLResponse = await response.json()
+
+                if (!result.errors && result.data?.updateAttendance) {
+                    setCurrentAttendance(prev => prev ? {
+                        ...prev,
+                        ...result.data!.updateAttendance!
+                    } : null)
+                    setIsCheckedIn(false)
+                    stopWorkingHoursInterval()
+                }
+            } else {
+                const response = await fetch('/api/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: `
+                            mutation CreateAttendance($data: CreateAttendanceInput!) {
+                                createAttendance(data: $data) {
+                                    userId
+                                    checkInTime
+                                    checkInNote
+                                    date
+                                    totalHoursWorked
+                                    overtime
+                                    negativeWorkingHours
+                                }
+                            }
+                        `,
+                        variables: {
+                            data: {
+                                userId: user.id,
+                                checkInTime: currentTime,
+                                checkInNote: note || null,
+                                date: todayDate,
+                                isHoliday: false,
+                                totalHoursWorked: "0h 0m 0s",
+                                overtime: "0h 0m 0s",
+                                negativeWorkingHours: "0h 0m 0s",
+                                userLatitude: currentLocation?.lat,
+                                userLongitude: currentLocation?.lng
+                            }
+                        }
+                    })
+                })
+
+                const result: GraphQLResponse = await response.json()
+
+                if (!result.errors && result.data?.createAttendance) {
+                    setCurrentAttendance(result.data.createAttendance)
+                    setIsCheckedIn(true)
+                    startWorkingHoursInterval()
+                }
+            }
+
+            setShowPopup(false)
+            setNote('')
+        } catch (error) {
+            console.error('Error:', error)
+        }
+    }
+
     const handleLogout = async (): Promise<void> => {
+        stopWorkingHoursInterval()
         const { error } = await supabase.auth.signOut()
         if (error) {
             console.error('Error signing out:', error.message)
@@ -111,21 +620,11 @@ const Navbar: React.FC = () => {
         router.replace('/signin')
     }
 
-    const handleCheckIn = (): void => {
-        setShowPopup(true)
-    }
-
-    const handlePopupSubmit = (): void => {
-        console.log('Optional Note:', note)
-        setShowPopup(false)
-        setNote('')
-    }
-
     const getProfileImageSrc = (): string => {
         if (userProfile?.imageUrl) {
             return userProfile.imageUrl
         }
-        return "/favicon.ico" 
+        return "/favicon.ico"
     }
 
     const getUserDisplayName = (): string => {
@@ -137,6 +636,57 @@ const Navbar: React.FC = () => {
         }
         return userProfile?.email || 'User'
     }
+
+    const getButtonText = (): string => {
+        return isCheckedIn ? 'Check Out' : 'Check In'
+    }
+
+    const getButtonIcon = () => {
+        return isCheckedIn ? <Clock color="#ffffff" size={22} strokeWidth={1.7} /> : <UserRoundCheck color="#ffffff" size={22} strokeWidth={1.7} />
+    }
+
+    const getButtonStyle = (): string => {
+        return isCheckedIn
+            ? "bg-red-600 font-semibold text-white flex items-center py-3 px-6 gap-2 rounded-lg hover:bg-red-700 cursor-pointer transition-colors duration-200"
+            : "bg-brand font-semibold text-white flex items-center py-3 px-6 gap-2 rounded-lg hover:bg-brand/90 cursor-pointer transition-colors duration-200"
+    }
+
+    const canPerformAction = (): boolean => {
+        if (currentAttendance && currentAttendance.checkOutTime) {
+            return false
+        }
+        return true
+    }
+
+    useEffect(() => {
+        const getCurrentUser = async (): Promise<void> => {
+            try {
+                await initializeLocation()
+
+                const { data: { user }, error } = await supabase.auth.getUser()
+                if (error) {
+                    console.error('Error getting user:', error.message)
+                    return
+                }
+
+                if (user) {
+                    setUser(user)
+                    await fetchUserProfile(user.id)
+                    await checkTodayAttendance(user.id)
+                }
+            } catch (error) {
+                console.error('Error:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        getCurrentUser()
+
+        return () => {
+            stopWorkingHoursInterval()
+        }
+    }, [])
 
     return (
         <header className="flex items-center py-4 px-16 justify-between bg-bg border-b-2 border-border">
@@ -171,10 +721,20 @@ const Navbar: React.FC = () => {
                 <button
                     type="button"
                     onClick={handleCheckIn}
-                    className="bg-brand font-semibold text-white flex items-center py-3 px-6 gap-2 rounded-lg hover:bg-brand/90 cursor-pointer"
+                    disabled={!canPerformAction() || isLocationLoading}
+                    className={`${getButtonStyle()} ${(!canPerformAction() || isLocationLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    <UserRoundCheck color="#ffffff" size={22} strokeWidth={1.7} />
-                    Check In
+                    {isLocationLoading ? (
+                        <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            Getting Location...
+                        </>
+                    ) : (
+                        <>
+                            {getButtonIcon()}
+                            {getButtonText()}
+                        </>
+                    )}
                 </button>
 
                 <button
@@ -210,18 +770,49 @@ const Navbar: React.FC = () => {
             {showPopup && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-xl shadow-lg w-96">
-                        <h2 className="text-lg font-semibold mb-4">Optional Check-In Note</h2>
+                        <h2 className="text-lg font-semibold mb-4">
+                            {isCheckedIn ? 'Check Out Note' : 'Check In Note'} (Optional)
+                        </h2>
+
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-600">
+                                <strong>Current Local Time:</strong><br />
+                                {getCurrentTimeForDisplay()}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-1">
+                                <strong>Date:</strong> {getTodayDateString()}
+                            </p>
+                            {currentLocation && currentOffice && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                    <strong>Your Location:</strong> {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                                    <br />
+                                    <strong>Office:</strong> {currentOffice.name}
+                                    <br />
+                                    <strong>Office Location:</strong> {currentOffice.latitude.toFixed(6)}, {currentOffice.longitude.toFixed(6)}
+                                    <br />
+                                    <span className="text-green-600">
+                                        ✓ Within {currentOffice.name} perimeter ({calculateDistance(currentLocation.lat, currentLocation.lng, currentOffice.latitude, currentOffice.longitude).toFixed(2)}km)
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+
                         <textarea
                             value={note}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
-                            placeholder="Write your note here..."
+                            placeholder={`Optional ${isCheckedIn ? 'check-out' : 'check-in'} note...`}
                             className="w-full border border-gray-300 rounded-lg p-2 mb-4 resize-none"
                             rows={4}
                         />
+
                         <div className="flex justify-end gap-3">
                             <button
                                 type="button"
-                                onClick={() => setShowPopup(false)}
+                                onClick={() => {
+                                    setShowPopup(false)
+                                    setNote('')
+                                    setLocationError('')
+                                }}
                                 className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors duration-200"
                             >
                                 Cancel
@@ -229,12 +820,51 @@ const Navbar: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={handlePopupSubmit}
-                                className="px-4 py-2 rounded-lg bg-brand text-white hover:bg-brand/90 transition-colors duration-200"
+                                className={`px-4 py-2 rounded-lg text-white transition-colors duration-200 ${isCheckedIn
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : 'bg-brand hover:bg-brand/90'
+                                    }`}
                             >
-                                Submit
+                                {isCheckedIn ? 'Check Out' : 'Check In'}
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {locationError && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+                        <div className="flex items-center gap-3 mb-4">
+                            <MapPin className="text-red-500" size={24} />
+                            <h2 className="text-lg font-semibold text-red-600">Location Error</h2>
+                        </div>
+                        <p className="text-gray-700 mb-4">{locationError}</p>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Please enable location access and try again. Check-in is only allowed within {ALLOWED_DISTANCE_KM}km of the office location.
+                        </p>
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setLocationError('')}
+                                className="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 transition-colors duration-200"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {officeLocations.length === 0 && !locationError && (
+                <div className="fixed bottom-4 right-4 bg-blue-500 text-white p-4 rounded-lg shadow-lg max-w-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <MapPin size={20} />
+                        <span className="font-semibold">Loading Office Locations</span>
+                    </div>
+                    <p className="text-sm">
+                        Fetching office locations for attendance tracking...
+                    </p>
                 </div>
             )}
         </header>

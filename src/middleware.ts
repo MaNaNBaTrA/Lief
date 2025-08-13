@@ -37,13 +37,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/manager', request.url))
     }
 
-    if (pathname === '/dashboard' && userRole === 'manager') {
-      return NextResponse.redirect(new URL('/manager/dashboard', request.url))
-    }
+    // if (pathname === '/dashboard' && userRole === 'manager') {
+    //   return NextResponse.redirect(new URL('/manager/dashboard', request.url))
+    // }
     
-    if (pathname.startsWith('/manager') && userRole !== 'manager') {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
+    // if (pathname.startsWith('/manager') && userRole !== 'manager') {
+    //   return NextResponse.redirect(new URL('/', request.url))
+    // }
   }
 
   return response

@@ -11,6 +11,11 @@ interface User {
   number?: string
   address?: string
   role?: string
+  gender?: string
+  latitude?: number
+  longitude?: number
+  reportingTime?: string
+  totalWorkingHours?: number
   imageUrl?: string
   createdAt: string
   updatedAt: string
@@ -29,6 +34,7 @@ const UserProfilePage : React.FC = () => {
     lastName: '',
     number: '',
     address: '',
+    gender: '',
     imageUrl: ''
   })
 
@@ -111,6 +117,11 @@ const UserProfilePage : React.FC = () => {
                 number
                 address
                 role
+                gender
+                latitude
+                longitude
+                reportingTime
+                totalWorkingHours
                 imageUrl
                 createdAt
                 updatedAt
@@ -154,6 +165,11 @@ const UserProfilePage : React.FC = () => {
                 number
                 address
                 role
+                gender
+                latitude
+                longitude
+                reportingTime
+                totalWorkingHours
                 imageUrl
                 createdAt
                 updatedAt
@@ -206,6 +222,7 @@ const UserProfilePage : React.FC = () => {
           lastName: userData.lastName || '',
           number: userData.number || '',
           address: userData.address || '',
+          gender: userData.gender || '',
           imageUrl: userData.imageUrl || ''
         })
       } catch (err) {
@@ -243,6 +260,7 @@ const UserProfilePage : React.FC = () => {
         lastName: user.lastName || '',
         number: user.number || '',
         address: user.address || '',
+        gender: user.gender || '',
         imageUrl: user.imageUrl || ''
       })
     }
@@ -351,7 +369,6 @@ const UserProfilePage : React.FC = () => {
           
           <div className="px-6 py-8">
             {isEditing ? (
-              // Edit Form
               <form onSubmit={handleEditSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -380,9 +397,7 @@ const UserProfilePage : React.FC = () => {
                         placeholder="Enter last name"
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Phone Number
@@ -394,6 +409,49 @@ const UserProfilePage : React.FC = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter phone number"
                       />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Gender
+                      </label>
+                      <div className="flex space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="gender"
+                            value="Male"
+                            checked={editForm.gender === 'Male'}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">Male</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="gender"
+                            value="Female"
+                            checked={editForm.gender === 'Female'}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">Female</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="gender"
+                            value="Other"
+                            checked={editForm.gender === 'Other'}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">Other</span>
+                        </label>
+                      </div>
                     </div>
 
                     <div>
@@ -411,8 +469,7 @@ const UserProfilePage : React.FC = () => {
                   </div>
                 </div>
 
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
                   <div>
                     <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Email (Read-only)</label>
                     <p className="mt-1 text-lg text-gray-600 bg-gray-50 p-2 rounded">{user.email}</p>
@@ -423,6 +480,12 @@ const UserProfilePage : React.FC = () => {
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
                         {user.role || 'Care Worker'}
                       </span>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Working Hours (Read-only)</label>
+                    <p className="mt-1 text-lg text-gray-600 bg-gray-50 p-2 rounded">
+                      {user.totalWorkingHours ? `${user.totalWorkingHours} hours/day` : 'Not set'}
                     </p>
                   </div>
                 </div>
@@ -452,8 +515,43 @@ const UserProfilePage : React.FC = () => {
             ) : (
               
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Personal Information</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">First Name</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.firstName || 'Not provided'}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Last Name</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.lastName || 'Not provided'}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Gender</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.gender || 'Not specified'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Phone Number</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.number || 'Not provided'}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Address</label>
+                        <p className="mt-1 text-lg text-gray-900">{user.address || 'Not provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">System Information</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div>
                       <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">User ID</label>
                       <p className="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded">{user.id}</p>
@@ -465,33 +563,33 @@ const UserProfilePage : React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">First Name</label>
-                      <p className="mt-1 text-lg text-gray-900">{user.firstName || 'Not provided'}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Last Name</label>
-                      <p className="mt-1 text-lg text-gray-900">{user.lastName || 'Not provided'}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Phone Number</label>
-                      <p className="mt-1 text-lg text-gray-900">{user.number || 'Not provided'}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Address</label>
-                      <p className="mt-1 text-lg text-gray-900">{user.address || 'Not provided'}</p>
-                    </div>
-
-                    <div>
                       <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Role</label>
                       <p className="mt-1">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                           {user.role || 'Care Worker'}
                         </span>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Reporting Time</label>
+                      <p className="mt-1 text-lg text-gray-900">{user.reportingTime || 'Not set'}</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Working Hours</label>
+                      <p className="mt-1 text-lg text-gray-900">
+                        {user.totalWorkingHours ? `${user.totalWorkingHours} hours/day` : 'Not set'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Location</label>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {user.latitude && user.longitude 
+                          ? `${user.latitude.toFixed(4)}, ${user.longitude.toFixed(4)}`
+                          : 'Not set'
+                        }
                       </p>
                     </div>
 
@@ -509,7 +607,7 @@ const UserProfilePage : React.FC = () => {
                 </div>
 
                 
-                <div className="mt-8 pt-6 border-t border-gray-200 flex gap-4">
+                <div className="pt-6 border-t border-gray-200 flex gap-4">
                   <button
                     onClick={() => setIsEditing(true)}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

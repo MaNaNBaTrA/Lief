@@ -15,16 +15,54 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  email     String   @unique
-  firstName String?  @map("first_name")
-  lastName  String?  @map("last_name")
-  number    String?  
-  address   String?  
-  imageUrl  String?  @map("image_url")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  role      String   @default("Care Worker")
+  id                String   @id
+  email             String   @unique
+  firstName         String?  @map("first_name")
+  lastName          String?  @map("last_name")
+  number            String?
+  address           String?
+  imageUrl          String?  @map("image_url")
+  gender            String?
+  latitude          Float?   @map("lat")
+  longitude         Float?   @map("lng")
+  reportingTime     String?  @map("reporting_time")
+  totalWorkingHours String?  @map("total_working_hours")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  role              String   @default("Care Worker")
+
+  attendances Attendance[]
 
   @@map("users")
+}
+
+model Attendance {
+  userId               String    @map("user_id")
+  checkInTime          DateTime? @map("check_in_time")
+  checkOutTime         DateTime? @map("check_out_time")
+  checkInNote          String?   @map("check_in_note")
+  checkOutNote         String?   @map("check_out_note")
+  overtime             String?   @default("0h 0min 0sec")
+  negativeWorkingHours String?   @default("0h 0min 0sec") @map("negative_working_hours")
+  totalHoursWorked     String?   @default("0h 0min 0sec") @map("total_hours_worked")
+  date                 String
+  isHoliday            Boolean   @default(false) @map("is_holiday")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@map("attendances")
+}
+
+model OfficeLocation {
+  id        String   @id @default(cuid())
+  name      String   @unique 
+  latitude  Float    @map("lat")
+  longitude Float    @map("lng")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("office_locations")
 }
