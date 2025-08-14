@@ -111,13 +111,11 @@ const ManagerUsersPage: React.FC = () => {
       setLoading(true)
       setError(null)
 
-      // First, get current user and verify they're a manager
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       if (authError || !authUser) {
         throw new Error('Authentication required')
       }
 
-      // Get current user data to verify role
       const currentUserResponse = await fetch('/api/graphql', {
         method: 'POST',
         headers: {
@@ -141,14 +139,12 @@ const ManagerUsersPage: React.FC = () => {
         throw new Error('User not found')
       }
 
-      // Check if user is manager
       if (currentUserData.role?.toLowerCase() !== 'manager') {
         throw new Error('Access denied: Only managers can view all users')
       }
 
       setCurrentUser(currentUserData)
 
-      // Now fetch all users
       const response = await fetch('/api/graphql', {
         method: 'POST',
         headers: {
@@ -181,7 +177,6 @@ const ManagerUsersPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    // Filter users based on search query
     if (!searchQuery) {
       setFilteredUsers(users)
     } else {
@@ -199,7 +194,7 @@ const ManagerUsersPage: React.FC = () => {
       })
       setFilteredUsers(filtered)
     }
-    setPage(0) // Reset to first page when searching
+    setPage(0) 
   }, [searchQuery, users])
 
   const handleUserClick = (userId: string) => {
@@ -215,13 +210,13 @@ const ManagerUsersPage: React.FC = () => {
     setPage(0)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
+  // const formatDate = (dateString: string) => {
+  //   return new Date(dateString).toLocaleDateString('en-US', {
+  //     year: 'numeric',
+  //     month: 'short',
+  //     day: 'numeric'
+  //   })
+  // }
 
   const getRoleChip = (role?: string) => {
     const userRole = role?.toLowerCase() || 'care worker'
@@ -278,7 +273,6 @@ const ManagerUsersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 4, maxWidth: '1400px', mx: 'auto' }}>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Group sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
@@ -291,7 +285,6 @@ const ManagerUsersPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Stats Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mb: 4 }}>
         <Card>
           <CardContent>
@@ -334,7 +327,7 @@ const ManagerUsersPage: React.FC = () => {
         </Card>
       </Box>
 
-      {/* Search and Filters */}
+      
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -355,7 +348,7 @@ const ManagerUsersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
+      
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -470,7 +463,7 @@ const ManagerUsersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Empty State */}
+      
       {filteredUsers.length === 0 && !loading && (
         <Card sx={{ mt: 3 }}>
           <CardContent>

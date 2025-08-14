@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { LogOut, UserRoundCheck, User, Clock, MapPin } from 'lucide-react'
+import { LogOut, UserRoundCheck, User, Clock} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { User as SupabaseUser } from '@supabase/supabase-js'
+import { useToast } from '@/context/ToastContext' 
 
 interface UserProfile {
     id: string
@@ -56,6 +57,7 @@ const ALLOWED_DISTANCE_KM = 2
 
 const Navbar: React.FC = () => {
     const router = useRouter()
+    const { showToast } = useToast()
     const [showPopup, setShowPopup] = useState<boolean>(false)
     const [note, setNote] = useState<string>('')
     const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -64,7 +66,6 @@ const Navbar: React.FC = () => {
     const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false)
     const [currentAttendance, setCurrentAttendance] = useState<Attendance | null>(null)
     const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
-    const [locationError, setLocationError] = useState<string>('')
     const [isLocationLoading, setIsLocationLoading] = useState<boolean>(false)
     const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([])
     const [currentOffice, setCurrentOffice] = useState<OfficeLocation | null>(null)
@@ -149,6 +150,7 @@ const Navbar: React.FC = () => {
 
             if (result.errors) {
                 console.error('GraphQL errors:', result.errors)
+                showToast('Failed to fetch office locations', 'error')
                 return
             }
 
@@ -157,23 +159,25 @@ const Navbar: React.FC = () => {
                 setOfficeLocations(offices)
                 if (offices.length > 0) {
                     setCurrentOffice(offices[0])
+                } else {
+                    showToast('No office locations configured', 'warning')
                 }
             }
         } catch (error) {
             console.error('Error fetching office locations:', error)
+            showToast('Failed to fetch office locations', 'error')
         }
     }
 
     const initializeLocation = async (): Promise<void> => {
         setIsLocationLoading(true)
-        setLocationError('')
 
         try {
             await fetchOfficeLocations()
             const location = await getCurrentLocation()
             setCurrentLocation(location)
         } catch (error) {
-            setLocationError((error as Error).message)
+            showToast((error as Error).message, 'error')
         } finally {
             setIsLocationLoading(false)
         }
@@ -181,15 +185,23 @@ const Navbar: React.FC = () => {
 
     const isWithinPerimeter = async (): Promise<boolean> => {
         setIsLocationLoading(true)
-        setLocationError('')
 
         try {
             const location = await getCurrentLocation()
             setCurrentLocation(location)
 
             if (officeLocations.length === 0) {
-                throw new Error('No office locations configured')
+                showToast('No office locations configured', 'error')
+                return false
             }
+
+            let nearestOffice = officeLocations[0]
+            let nearestDistance = calculateDistance(
+                location.lat,
+                location.lng,
+                nearestOffice.latitude,
+                nearestOffice.longitude
+            )
 
             for (const office of officeLocations) {
                 const distance = calculateDistance(
@@ -203,11 +215,17 @@ const Navbar: React.FC = () => {
                     setCurrentOffice(office)
                     return true
                 }
+
+                if (distance < nearestDistance) {
+                    nearestDistance = distance
+                    nearestOffice = office
+                }
             }
 
+            showToast(`You are ${nearestDistance.toFixed(2)}km away from ${nearestOffice.name}. Check-in requires being within ${ALLOWED_DISTANCE_KM}km of any office.`, 'warning')
             return false
         } catch (error) {
-            setLocationError((error as Error).message)
+            showToast((error as Error).message, 'error')
             return false
         } finally {
             setIsLocationLoading(false)
@@ -248,19 +266,19 @@ const Navbar: React.FC = () => {
         })
     }
 
-    const formatTimeForDisplay = (utcTime: string): string => {
-        if (!utcTime) return ''
-        const date = new Date(utcTime)
-        return date.toLocaleString("en-US", {
-            timeZone: DEFAULT_TIMEZONE,
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        })
-    }
+    // const formatTimeForDisplay = (utcTime: string): string => {
+    //     if (!utcTime) return ''
+    //     const date = new Date(utcTime)
+    //     return date.toLocaleString("en-US", {
+    //         timeZone: DEFAULT_TIMEZONE,
+    //         year: 'numeric',
+    //         month: 'short',
+    //         day: '2-digit',
+    //         hour: '2-digit',
+    //         minute: '2-digit',
+    //         second: '2-digit'
+    //     })
+    // }
 
     const calculateHoursWorked = (checkInTime: string, checkOutTime?: string): number => {
         try {
@@ -401,6 +419,7 @@ const Navbar: React.FC = () => {
 
             if (result.errors) {
                 console.error('GraphQL errors:', result.errors)
+                showToast('Failed to check attendance status', 'error')
                 return
             }
 
@@ -417,6 +436,7 @@ const Navbar: React.FC = () => {
             }
         } catch (error) {
             console.error('Error checking today\'s attendance:', error)
+            showToast('Failed to check attendance status', 'error')
         }
     }
 
@@ -457,6 +477,7 @@ const Navbar: React.FC = () => {
             }
         } catch (error) {
             console.error('Error fetching user profile:', error)
+            showToast('Failed to load user profile', 'error')
         }
     }
 
@@ -467,40 +488,14 @@ const Navbar: React.FC = () => {
         }
 
         if (currentAttendance && currentAttendance.checkOutTime) {
+            showToast('You have already checked out for today', 'info')
             return
         }
 
         const withinPerimeter = await isWithinPerimeter()
 
         if (!withinPerimeter) {
-            let nearestOfficeInfo = ''
-            if (currentLocation && officeLocations.length > 0) {
-                let nearestOffice = officeLocations[0]
-                let nearestDistance = calculateDistance(
-                    currentLocation.lat,
-                    currentLocation.lng,
-                    nearestOffice.latitude,
-                    nearestOffice.longitude
-                )
-
-                for (const office of officeLocations) {
-                    const distance = calculateDistance(
-                        currentLocation.lat,
-                        currentLocation.lng,
-                        office.latitude,
-                        office.longitude
-                    )
-                    if (distance < nearestDistance) {
-                        nearestDistance = distance
-                        nearestOffice = office
-                    }
-                }
-
-                nearestOfficeInfo = `Nearest office: ${nearestOffice.name} (${nearestDistance.toFixed(2)}km away)`
-            }
-
-            alert(`You are outside all office perimeters. Check-in is only allowed within ${ALLOWED_DISTANCE_KM}km of any office location.\n\n${nearestOfficeInfo}`)
-            return
+            return 
         }
 
         setShowPopup(true)
@@ -549,13 +544,19 @@ const Navbar: React.FC = () => {
 
                 const result: GraphQLResponse = await response.json()
 
-                if (!result.errors && result.data?.updateAttendance) {
+                if (result.errors) {
+                    showToast('Failed to check out. Please try again.', 'error')
+                    return
+                }
+
+                if (result.data?.updateAttendance) {
                     setCurrentAttendance(prev => prev ? {
                         ...prev,
                         ...result.data!.updateAttendance!
                     } : null)
                     setIsCheckedIn(false)
                     stopWorkingHoursInterval()
+                    showToast('Successfully checked out!', 'success')
                 }
             } else {
                 const response = await fetch('/api/graphql', {
@@ -596,10 +597,16 @@ const Navbar: React.FC = () => {
 
                 const result: GraphQLResponse = await response.json()
 
-                if (!result.errors && result.data?.createAttendance) {
+                if (result.errors) {
+                    showToast('Failed to check in. Please try again.', 'error')
+                    return
+                }
+
+                if (result.data?.createAttendance) {
                     setCurrentAttendance(result.data.createAttendance)
                     setIsCheckedIn(true)
                     startWorkingHoursInterval()
+                    showToast('Successfully checked in!', 'success')
                 }
             }
 
@@ -607,6 +614,7 @@ const Navbar: React.FC = () => {
             setNote('')
         } catch (error) {
             console.error('Error:', error)
+            showToast('An unexpected error occurred. Please try again.', 'error')
         }
     }
 
@@ -615,8 +623,10 @@ const Navbar: React.FC = () => {
         const { error } = await supabase.auth.signOut()
         if (error) {
             console.error('Error signing out:', error.message)
+            showToast('Failed to log out. Please try again.', 'error')
             return
         }
+        showToast('Successfully logged out!', 'success')
         router.replace('/signin')
     }
 
@@ -666,6 +676,7 @@ const Navbar: React.FC = () => {
                 const { data: { user }, error } = await supabase.auth.getUser()
                 if (error) {
                     console.error('Error getting user:', error.message)
+                    showToast('Failed to load user information', 'error')
                     return
                 }
 
@@ -676,6 +687,7 @@ const Navbar: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Error:', error)
+                showToast('Failed to initialize application', 'error')
             } finally {
                 setLoading(false)
             }
@@ -784,11 +796,7 @@ const Navbar: React.FC = () => {
                             </p>
                             {currentLocation && currentOffice && (
                                 <p className="text-sm text-gray-600 mt-1">
-                                    <strong>Your Location:</strong> {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-                                    <br />
                                     <strong>Office:</strong> {currentOffice.name}
-                                    <br />
-                                    <strong>Office Location:</strong> {currentOffice.latitude.toFixed(6)}, {currentOffice.longitude.toFixed(6)}
                                     <br />
                                     <span className="text-green-600">
                                         ✓ Within {currentOffice.name} perimeter ({calculateDistance(currentLocation.lat, currentLocation.lng, currentOffice.latitude, currentOffice.longitude).toFixed(2)}km)
@@ -811,7 +819,6 @@ const Navbar: React.FC = () => {
                                 onClick={() => {
                                     setShowPopup(false)
                                     setNote('')
-                                    setLocationError('')
                                 }}
                                 className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors duration-200"
                             >
@@ -829,42 +836,6 @@ const Navbar: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {locationError && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-xl shadow-lg w-96">
-                        <div className="flex items-center gap-3 mb-4">
-                            <MapPin className="text-red-500" size={24} />
-                            <h2 className="text-lg font-semibold text-red-600">Location Error</h2>
-                        </div>
-                        <p className="text-gray-700 mb-4">{locationError}</p>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Please enable location access and try again. Check-in is only allowed within {ALLOWED_DISTANCE_KM}km of the office location.
-                        </p>
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setLocationError('')}
-                                className="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 transition-colors duration-200"
-                            >
-                                OK
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {officeLocations.length === 0 && !locationError && (
-                <div className="fixed bottom-4 right-4 bg-blue-500 text-white p-4 rounded-lg shadow-lg max-w-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                        <MapPin size={20} />
-                        <span className="font-semibold">Loading Office Locations</span>
-                    </div>
-                    <p className="text-sm">
-                        Fetching office locations for attendance tracking...
-                    </p>
                 </div>
             )}
         </header>

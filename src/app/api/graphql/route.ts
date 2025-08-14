@@ -1,15 +1,10 @@
-// app/api/graphql/route.ts - Updated with security
 import { ApolloServer } from '@apollo/server'
 import { startServerAndCreateNextHandler } from '@as-integrations/next'
 import { gql } from 'graphql-tag'
 import { PrismaClient } from '@/generated/prisma/client'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { NextRequest } from 'next/server'
 
 const prisma = new PrismaClient()
 
-// Your existing typeDefs here (unchanged)
 const typeDefs = gql`
   type User {
     id: String!
@@ -156,34 +151,6 @@ const typeDefs = gql`
   }
 `
 
-// Authentication and authorization utilities
-interface AuthenticatedUser {
-  id: string
-  email: string
-  role?: string
-}
-
-const checkUserPermission = (
-  currentUser: AuthenticatedUser | null,
-  targetUserId: string,
-  operation: 'read' | 'write'
-): boolean => {
-  if (!currentUser) return false
-
-  // Managers can read/write any user's data
-  if (currentUser.role?.toLowerCase() === 'manager') {
-    return true
-  }
-
-  // Care workers can only access their own data
-  if (currentUser.role?.toLowerCase() === 'care worker' || !currentUser.role) {
-    return currentUser.id === targetUserId
-  }
-
-  return false
-}
-
-// Your existing utility functions here (unchanged)
 const DEFAULT_TIMEZONE = 'Asia/Kolkata' 
 
 const formatDate = (date: Date, timezone: string = DEFAULT_TIMEZONE): string => {
@@ -255,19 +222,9 @@ const calculateOvertimeAndNegative = (totalHours: number, expectedHours: number)
   }
 }
 
-// Secure resolvers with authentication and authorization
 const resolvers = {
   User: {
-    attendances: async (parent: any, _args: any, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Users can only see attendances if they can read the user's data
-      if (!checkUserPermission(context.user, parent.id, 'read')) {
-        throw new Error('Access denied: You can only view attendance data you have permission to access')
-      }
-
+    attendances: async (parent: any) => {
       return prisma.attendance.findMany({
         where: { userId: parent.id },
         orderBy: { date: 'desc' }
@@ -276,85 +233,33 @@ const resolvers = {
   },
 
   Attendance: {
-    user: async (parent: any, _args: any, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      const user = await prisma.user.findUnique({
+    user: async (parent: any) => {
+      return prisma.user.findUnique({
         where: { id: parent.userId }
       })
-
-      if (!user) return null
-
-      // Check if current user can see this user's data
-      if (!checkUserPermission(context.user, user.id, 'read')) {
-        throw new Error('Access denied')
-      }
-
-      return user
     }
   },
 
   Query: {
-    userByEmail: async (_parent: unknown, args: { email: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      const user = await prisma.user.findUnique({
+    userByEmail: async (_parent: unknown, args: { email: string }) => {
+      return prisma.user.findUnique({
         where: { email: args.email },
       })
-
-      if (!user) return null
-
-      // Check permissions
-      if (!checkUserPermission(context.user, user.id, 'read')) {
-        throw new Error('Access denied: You can only view profiles you have permission to access')
-      }
-
-      return user
     },
 
-    getUserById: async (_parent: unknown, args: { id: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Check permissions
-      if (!checkUserPermission(context.user, args.id, 'read')) {
-        throw new Error('Access denied: You can only view profiles you have permission to access')
-      }
-
+    getUserById: async (_parent: unknown, args: { id: string }) => {
       return prisma.user.findUnique({
         where: { id: args.id },
       })
     },
 
-    getAllUsers: async (_parent: unknown, _args: unknown, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Only managers can get all users
-      if (context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can view all users')
-      }
-
+    getAllUsers: async () => {
       return prisma.user.findMany({
         orderBy: { createdAt: 'desc' }
       })
     },
 
-    getAttendance: async (_parent: unknown, args: { userId: string; date: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (!checkUserPermission(context.user, args.userId, 'read')) {
-        throw new Error('Access denied: You can only view your own attendance records')
-      }
-
+    getAttendance: async (_parent: unknown, args: { userId: string; date: string }) => {
       return prisma.attendance.findUnique({
         where: {
           userId_date: {
@@ -365,63 +270,33 @@ const resolvers = {
       })
     },
 
-    getAttendancesByUser: async (_parent: unknown, args: { userId: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (!checkUserPermission(context.user, args.userId, 'read')) {
-        throw new Error('Access denied: You can only view your own attendance records')
-      }
-
+    getAttendancesByUser: async (_parent: unknown, args: { userId: string }) => {
       return prisma.attendance.findMany({
         where: { userId: args.userId },
         orderBy: { date: 'desc' }
       })
     },
 
-    getAttendancesByDate: async (_parent: unknown, args: { date: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Only managers can view attendance by date (all users for a specific date)
-      if (context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can view attendance records by date')
-      }
-
+    getAttendancesByDate: async (_parent: unknown, args: { date: string }) => {
       return prisma.attendance.findMany({
         where: { date: args.date },
         include: { user: true }
       })
     },
 
-    // Office location queries (managers only)
-    getOfficeLocation: async (_parent: unknown, args: { id: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
+    getOfficeLocation: async (_parent: unknown, args: { id: string }) => {
       return prisma.officeLocation.findUnique({
         where: { id: args.id }
       })
     },
 
-    getAllOfficeLocations: async (_parent: unknown, _args: unknown, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
+    getAllOfficeLocations: async () => {
       return prisma.officeLocation.findMany({
         orderBy: { name: 'asc' }
       })
     },
 
-    getOfficeLocationByName: async (_parent: unknown, args: { name: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
+    getOfficeLocationByName: async (_parent: unknown, args: { name: string }) => {
       return prisma.officeLocation.findUnique({
         where: { name: args.name }
       })
@@ -429,16 +304,7 @@ const resolvers = {
   },
 
   Mutation: {
-    createUser: async (_parent: unknown, args: { data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Only managers can create users, or users can create themselves during registration
-      if (context.user.role?.toLowerCase() !== 'manager' && context.user.id !== args.data.id) {
-        throw new Error('Access denied: Only managers can create user accounts')
-      }
-
+    createUser: async (_parent: unknown, args: { data: any }) => {
       const {
         id, email, firstName, lastName, number, address, role,
         gender, latitude, longitude, reportingTime, totalWorkingHours, imageUrl
@@ -447,6 +313,7 @@ const resolvers = {
       const existingUser = await prisma.user.findUnique({
         where: { email },
       })
+      
       if (existingUser) {
         return existingUser
       }
@@ -470,29 +337,7 @@ const resolvers = {
       })
     },
 
-    updateUser: async (_parent: unknown, args: { id: string; data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Check permissions for user update
-      if (!checkUserPermission(context.user, args.id, 'write')) {
-        throw new Error('Access denied: You can only edit your own profile or profiles you have permission to modify')
-      }
-
-      const existingUser = await prisma.user.findUnique({
-        where: { id: args.id },
-      })
-
-      if (!existingUser) {
-        throw new Error('User not found')
-      }
-
-      // Prevent role modification unless user is manager
-      if (args.data.role && context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can modify user roles')
-      }
-
+    updateUser: async (_parent: unknown, args: { id: string; data: any }) => {
       const updateData = Object.fromEntries(
         Object.entries(args.data).filter(([_, value]) => value !== undefined)
       )
@@ -503,66 +348,37 @@ const resolvers = {
       })
     },
 
-    updateUserLocation: async (_parent: unknown, args: { id: string; latitude: number; longitude: number }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (!checkUserPermission(context.user, args.id, 'write')) {
-        throw new Error('Access denied: You can only update your own location')
-      }
-
-      const { id, latitude, longitude } = args
-
-      const existingUser = await prisma.user.findUnique({
-        where: { id },
-      })
-
-      if (!existingUser) {
-        throw new Error('User not found')
-      }
-
+    updateUserLocation: async (_parent: unknown, args: { id: string; latitude: number; longitude: number }) => {
       return prisma.user.update({
-        where: { id },
+        where: { id: args.id },
         data: {
-          latitude,
-          longitude
+          latitude: args.latitude,
+          longitude: args.longitude
         },
       })
     },
 
-    createAttendance: async (_parent: unknown, args: { data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      // Users can only create attendance for themselves, managers can create for anyone
-      if (!checkUserPermission(context.user, args.data.userId, 'write')) {
-        throw new Error('Access denied: You can only create attendance records for yourself')
-      }
-
+    createAttendance: async (_parent: unknown, args: { data: any }) => {
       const {
         userId, checkInTime, checkOutTime, checkInNote, checkOutNote,
         overtime, negativeWorkingHours, totalHoursWorked, date, isHoliday,
         userLatitude, userLongitude
       } = args.data
 
-      const user = await prisma.user.findUnique({
-        where: { id: userId }
-      })
-
-      if (!user) {
-        throw new Error('User not found')
-      }
-      
-      if (userLatitude && userLongitude && !user.latitude && !user.longitude) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            latitude: userLatitude,
-            longitude: userLongitude
-          }
+      if (userLatitude && userLongitude) {
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
         })
+        
+        if (user && !user.latitude && !user.longitude) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              latitude: userLatitude,
+              longitude: userLongitude
+            }
+          })
+        }
       }
 
       let attendanceDate: string
@@ -587,14 +403,11 @@ const resolvers = {
         throw new Error('Attendance record already exists for this user and date')
       }
 
-      const checkInTimeForStorage = checkInTime || null
-      const checkOutTimeForStorage = checkOutTime || null
-
       return prisma.attendance.create({
         data: {
           userId,
-          checkInTime: checkInTimeForStorage,
-          checkOutTime: checkOutTimeForStorage,
+          checkInTime: checkInTime || null,
+          checkOutTime: checkOutTime || null,
           checkInNote: checkInNote || null,
           checkOutNote: checkOutNote || null,
           overtime: overtime || "0h 0m 0s",
@@ -606,88 +419,41 @@ const resolvers = {
       })
     },
 
-    updateAttendance: async (_parent: unknown, args: { userId: string; date: string; data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (!checkUserPermission(context.user, args.userId, 'write')) {
-        throw new Error('Access denied: You can only update your own attendance records')
-      }
-
+    updateAttendance: async (_parent: unknown, args: { userId: string; date: string; data: any }) => {
       const { userId, date, data } = args
-
-      const existingAttendance = await prisma.attendance.findUnique({
-        where: {
-          userId_date: {
-            userId,
-            date
-          }
-        }
-      })
-
-      if (!existingAttendance) {
-        throw new Error('Attendance record not found')
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId }
-      })
-
-      if (data.userLatitude && data.userLongitude && user && !user.latitude && !user.longitude) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            latitude: data.userLatitude,
-            longitude: data.userLongitude
-          }
-        })
-      }
 
       const updateData: any = {}
 
-      if (data.checkInTime !== undefined) {
-        updateData.checkInTime = data.checkInTime
-      }
-
-      if (data.checkOutTime !== undefined) {
-        updateData.checkOutTime = data.checkOutTime
-      }
-
+      if (data.checkInTime !== undefined) updateData.checkInTime = data.checkInTime
+      if (data.checkOutTime !== undefined) updateData.checkOutTime = data.checkOutTime
       if (data.checkInNote !== undefined) updateData.checkInNote = data.checkInNote
       if (data.checkOutNote !== undefined) updateData.checkOutNote = data.checkOutNote
+      if (data.totalHoursWorked !== undefined) updateData.totalHoursWorked = data.totalHoursWorked
+      if (data.overtime !== undefined) updateData.overtime = data.overtime
+      if (data.negativeWorkingHours !== undefined) updateData.negativeWorkingHours = data.negativeWorkingHours
+      if (data.isHoliday !== undefined) updateData.isHoliday = data.isHoliday
 
-      if (data.checkOutTime && (updateData.checkInTime || existingAttendance.checkInTime)) {
-        const checkInTime = updateData.checkInTime || existingAttendance.checkInTime
-        const checkOutTime = updateData.checkOutTime
-
-        if (checkInTime && checkOutTime) {
+      if (data.checkOutTime) {
+        const attendance = await prisma.attendance.findUnique({
+          where: { userId_date: { userId, date } }
+        })
+        
+        const checkInTime = data.checkInTime || attendance?.checkInTime
+        if (checkInTime) {
           const checkInDate = new Date(checkInTime)
-          const checkOutDate = new Date(checkOutTime)
+          const checkOutDate = new Date(data.checkOutTime)
           const diffMs = checkOutDate.getTime() - checkInDate.getTime()
           const totalHours = Math.max(0, diffMs / (1000 * 60 * 60))
 
           updateData.totalHoursWorked = formatHoursToTimeString(totalHours)
 
+          const user = await prisma.user.findUnique({ where: { id: userId } })
           const expectedHours = user?.totalWorkingHours ? parseTimeStringToHours(user.totalWorkingHours) : 8
           const { overtime, negativeWorkingHours } = calculateOvertimeAndNegative(totalHours, expectedHours)
 
           updateData.overtime = formatHoursToTimeString(overtime)
           updateData.negativeWorkingHours = formatHoursToTimeString(negativeWorkingHours)
         }
-      }
-
-      if (data.totalHoursWorked !== undefined && !data.checkOutTime) {
-        updateData.totalHoursWorked = data.totalHoursWorked || "0h 0m 0s"
-      }
-      if (data.overtime !== undefined && !data.checkOutTime) {
-        updateData.overtime = data.overtime || "0h 0m 0s"
-      }
-      if (data.negativeWorkingHours !== undefined && !data.checkOutTime) {
-        updateData.negativeWorkingHours = data.negativeWorkingHours || "0h 0m 0s"
-      }
-      if (data.isHoliday !== undefined) {
-        updateData.isHoliday = data.isHoliday
       }
 
       return prisma.attendance.update({
@@ -701,175 +467,43 @@ const resolvers = {
       })
     },
 
-    deleteAttendance: async (_parent: unknown, args: { userId: string; date: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (!checkUserPermission(context.user, args.userId, 'write')) {
-        throw new Error('Access denied: You can only delete your own attendance records')
-      }
-
-      const { userId, date } = args
-
-      const existingAttendance = await prisma.attendance.findUnique({
-        where: {
-          userId_date: {
-            userId,
-            date
-          }
-        }
-      })
-
-      if (!existingAttendance) {
-        throw new Error('Attendance record not found')
-      }
-
+    deleteAttendance: async (_parent: unknown, args: { userId: string; date: string }) => {
       await prisma.attendance.delete({
         where: {
           userId_date: {
-            userId,
-            date
+            userId: args.userId,
+            date: args.date
           }
         }
       })
-
       return true
     },
 
-    // Office location mutations (managers only)
-    createOfficeLocation: async (_parent: unknown, args: { data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can create office locations')
-      }
-
+    createOfficeLocation: async (_parent: unknown, args: { data: any }) => {
       const { name, latitude, longitude } = args.data
-
-      const existingOffice = await prisma.officeLocation.findUnique({
-        where: { name }
-      })
-
-      if (existingOffice) {
-        throw new Error('Office location with this name already exists')
-      }
-
       return prisma.officeLocation.create({
-        data: {
-          name,
-          latitude,
-          longitude
-        }
+        data: { name, latitude, longitude }
       })
     },
 
-    updateOfficeLocation: async (_parent: unknown, args: { id: string; data: any }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can update office locations')
-      }
-
-      const { id, data } = args
-
-      const existingOffice = await prisma.officeLocation.findUnique({
-        where: { id }
-      })
-
-      if (!existingOffice) {
-        throw new Error('Office location not found')
-      }
-
-      if (data.name && data.name !== existingOffice.name) {
-        const nameExists = await prisma.officeLocation.findUnique({
-          where: { name: data.name }
-        })
-
-        if (nameExists) {
-          throw new Error('Office location with this name already exists')
-        }
-      }
-
+    updateOfficeLocation: async (_parent: unknown, args: { id: string; data: any }) => {
       const updateData = Object.fromEntries(
-        Object.entries(data).filter(([_, value]) => value !== undefined)
+        Object.entries(args.data).filter(([_, value]) => value !== undefined)
       )
 
       return prisma.officeLocation.update({
-        where: { id },
+        where: { id: args.id },
         data: updateData
       })
     },
 
-    deleteOfficeLocation: async (_parent: unknown, args: { id: string }, context: { user?: AuthenticatedUser }) => {
-      if (!context.user) {
-        throw new Error('Authentication required')
-      }
-
-      if (context.user.role?.toLowerCase() !== 'manager') {
-        throw new Error('Access denied: Only managers can delete office locations')
-      }
-
-      const { id } = args
-
-      const existingOffice = await prisma.officeLocation.findUnique({
-        where: { id }
-      })
-
-      if (!existingOffice) {
-        throw new Error('Office location not found')
-      }
-
+    deleteOfficeLocation: async (_parent: unknown, args: { id: string }) => {
       await prisma.officeLocation.delete({
-        where: { id }
+        where: { id: args.id }
       })
-
       return true
     }
   },
-}
-
-// Context function to get authenticated user
-const getContext = async (req: NextRequest) => {
-  try {
-     const cookieStore = await cookies();
-    const supabase =  createServerComponentClient({ cookies })
-    const { data: { user: authUser }, error } = await supabase.auth.getUser()
-    
-    if (error || !authUser) {
-      return { user: undefined } 
-    }
-
-    const userData = await prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: { id: true, email: true, role: true }
-    })
-
-    if (!userData) {
-      return {
-        user: {
-          id: authUser.id,
-          email: authUser.email || '',
-          role: 'care worker' 
-        }
-      }
-    }
-
-    return {
-      user: {
-        id: userData.id,
-        email: userData.email,
-        role: userData.role?.toLowerCase() || 'care worker'
-      }
-    }
-  } catch (error) {
-    console.error('Context creation error:', error)
-    return { user: undefined } 
-  }
 }
 
 const server = new ApolloServer({
@@ -878,8 +512,6 @@ const server = new ApolloServer({
   introspection: true,
 })
 
-const handler = startServerAndCreateNextHandler(server, {
-  context: getContext
-})
+const handler = startServerAndCreateNextHandler(server)
 
 export { handler as GET, handler as POST }

@@ -56,10 +56,10 @@ interface Attendance {
 }
 
 interface UserAttendanceTableProps {
-  userId?: string // If provided, shows attendance for specific user
-  showAllUsers?: boolean // If true, shows attendance for all users (manager view)
-  dateFilter?: string // Optional date filter
-  maxRows?: number // Maximum rows to display initially
+  userId?: string 
+  showAllUsers?: boolean 
+  dateFilter?: string
+  maxRows?: number 
 }
 
 const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
@@ -78,7 +78,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
 
   const supabase = createClientComponentClient()
 
-  // GraphQL queries
   const GET_USER_ATTENDANCES = `
     query GetAttendancesByUser($userId: String!) {
       getAttendancesByUser(userId: $userId) {
@@ -136,7 +135,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
       setLoading(true)
       setError(null)
 
-      // Get current user for permission checking
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       if (authError || !authUser) {
         throw new Error('Authentication required')
@@ -152,18 +150,14 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
       console.log('Current authenticated user:', authUser.id)
 
       if (showAllUsers && dateFilter) {
-        // Manager view: get all attendances for a specific date
         console.log('Fetching all users attendance for date:', dateFilter)
         query = GET_ALL_ATTENDANCES_BY_DATE
         variables = { date: dateFilter }
       } else {
-        // Determine which user's attendance to fetch
         if (userId && userId.trim() !== '') {
-          // FIXED: Always prioritize the userId prop when it's explicitly provided
           targetUserId = userId.trim()
           console.log('Using provided userId (PRIORITY):', targetUserId)
         } else {
-          // Fallback to current authenticated user only if no userId is provided
           targetUserId = authUser.id
           console.log('Using authenticated user ID (FALLBACK):', targetUserId)
         }
@@ -208,10 +202,8 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
 
       console.log('Processed attendance data:', data)
       
-      // Additional filtering for single user when userId is provided
       let filteredData = data || []
       if (userId && userId.trim() !== '' && !showAllUsers) {
-        // Double-check that we only get records for the specified user
         filteredData = filteredData.filter((attendance: Attendance) => 
           attendance.userId === userId.trim()
         )
@@ -232,7 +224,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     console.log('Component props changed:', { userId, showAllUsers, dateFilter })
     console.log('userId type and value:', typeof userId, userId)
     
-    // Add a small delay to ensure props have been properly set
     const timeoutId = setTimeout(() => {
       fetchAttendances()
     }, 100)
@@ -240,7 +231,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     return () => clearTimeout(timeoutId)
   }, [userId, showAllUsers, dateFilter])
 
-  // Debug: Log the attendance data
   useEffect(() => {
     console.log('Attendance data received:', attendances)
     if (attendances.length > 0) {
@@ -257,12 +247,10 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     try {
       let date: Date
       
-      // Check if it's a Unix timestamp (all digits)
       if (/^\d+$/.test(dateTime.toString().trim())) {
         const timestamp = parseInt(dateTime.toString())
         date = new Date(timestamp)
       } else {
-        // Handle the format "2025-08-14 04:57:01" or other string formats
         let isoString = dateTime
         if (dateTime.includes(' ') && !dateTime.includes('T')) {
           isoString = dateTime.replace(' ', 'T') + 'Z'
@@ -270,7 +258,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
         
         date = new Date(isoString)
         if (isNaN(date.getTime())) {
-          // Fallback: try parsing as-is
           const fallbackDate = new Date(dateTime)
           if (isNaN(fallbackDate.getTime())) return 'N/A'
           date = fallbackDate
@@ -304,21 +291,16 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     try {
       let date: Date
       
-      // Check if it's a Unix timestamp (all digits)
       if (/^\d+$/.test(dateTime.toString().trim())) {
         console.log('Detected Unix timestamp:', dateTime)
         const timestamp = parseInt(dateTime.toString())
         
-        // The timestamp is already in India time, so we need to treat it as UTC
-        // and then format it without timezone conversion
         const utcDate = new Date(timestamp)
         console.log('UTC Date from timestamp (this is actually India time):', utcDate.toISOString())
         
-        // Extract hours and minutes directly from UTC (which is actually India time)
         const hours = utcDate.getUTCHours()
         const minutes = utcDate.getUTCMinutes()
         
-        // Format manually to avoid timezone conversion
         const period = hours >= 12 ? 'PM' : 'AM'
         const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
         const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`
@@ -327,19 +309,15 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
         return formattedTime
         
       } else {
-        // Handle the format "2025-08-14 04:57:01" or other string formats
         let dateToProcess = dateTime.toString().trim()
         
-        // Try multiple parsing approaches
         date = new Date(dateToProcess)
         
-        // If first attempt fails, try with T separator
         if (isNaN(date.getTime()) && dateToProcess.includes(' ')) {
           const isoString = dateToProcess.replace(' ', 'T')
           date = new Date(isoString)
         }
         
-        // If still fails, try with Z
         if (isNaN(date.getTime()) && dateToProcess.includes(' ')) {
           const isoString = dateToProcess.replace(' ', 'T') + 'Z'
           date = new Date(isoString)
@@ -462,7 +440,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     page * rowsPerPage + rowsPerPage
   )
 
-  // Get the display name for the user
   const getDisplayName = (): string => {
     if (showAllUsers) return 'Team Attendance'
     if (attendances.length > 0) {
@@ -476,7 +453,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
         displayName = `${user.email}'s Attendance`
       }
       
-      // Add indicator if manager is viewing someone else's attendance
       if (!isViewingOwnAttendance && userId) {
         displayName += ` (Manager View)`
       }

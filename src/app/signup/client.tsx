@@ -4,16 +4,21 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
+import { useToast } from '@/context/ToastContext';
+import Main from '../../../public/Images/Lief.svg';
+import Illustration from '../../../public/Images/Illustration.png';
 
-const SignUpPage : React.FC = () => {
-    const [email, setEmail] = useState<string>('')
-    const [password, setPassword] = useState<string>('')
-    const [confirmPassword, setConfirmPassword] = useState<string>('')
-    const [passwordLoading, setPasswordLoading] = useState<boolean>(false)
-    const [googleLoading, setGoogleLoading] = useState<boolean>(false)
-    const [focusedInput, setFocusedInput] = useState<string>('')
+
+const SignUpPage: React.FC = () => {
+    const [email, setEmail] = useState<string>('');
+    const [password, setPassword] = useState<string>('');
+    const [confirmPassword, setConfirmPassword] = useState<string>('');
+    const [passwordLoading, setPasswordLoading] = useState<boolean>(false);
+    const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+    const [focusedInput, setFocusedInput] = useState<string>('');
 
     const router = useRouter();
+    const { showToast } = useToast();
 
     useEffect(() => {
         const checkUser = async () => {
@@ -24,31 +29,6 @@ const SignUpPage : React.FC = () => {
         };
         checkUser();
     }, [router]);
-
-    const showToast = (message: string, type: 'error' | 'warning' | 'success') => {
-        const existingToast = document.querySelector('.toast');
-        if (existingToast) {
-            existingToast.remove();
-        }
-
-        const alertClass = type === 'error' ? 'alert-error' : type === 'warning' ? 'alert-warning' : 'alert-success';
-
-        const toastContainer = document.createElement('div');
-        toastContainer.className = 'toast toast-top toast-center';
-        toastContainer.innerHTML = `
-      <div class="alert ${alertClass}">
-        <span>${message}</span>
-      </div>
-    `;
-
-        document.body.appendChild(toastContainer);
-
-        setTimeout(() => {
-            if (toastContainer.parentNode) {
-                toastContainer.remove();
-            }
-        }, 4000);
-    };
 
     const SigninClick = () => {
         router.push('/signin');
@@ -63,8 +43,8 @@ const SignUpPage : React.FC = () => {
     };
 
     const isValidEmail = (email: string): boolean => {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    }
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
 
     const getPasswordValidation = () => {
         const hasMinLength = password.length >= 8;
@@ -86,86 +66,199 @@ const SignUpPage : React.FC = () => {
     const passwordValidation = getPasswordValidation();
     const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
-    async function checkUserExists(email: string): Promise<boolean> {
+
+    async function checkUserExists(email: string): Promise<{ exists: boolean; error?: string }> {
         const query = `
-      query CheckUser($email: String!) {
-        userByEmail(email: $email) {
-          id
-        }
-      }
-    `;
+            query CheckUser($email: String!) {
+                userByEmail(email: $email) {
+                    id
+                    email
+                }
+            }
+        `;
 
         const variables = { email };
 
-        const res = await fetch('/api/graphql', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, variables }),
-        });
+        try {
+            const res = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query,
+                    variables,
+                    operationName: 'CheckUser'
+                }),
+            });
 
-        const json = await res.json();
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Server response error:', errorText);
+                return {
+                    exists: false,
+                    error: `Server error (${res.status}): Please try again later`
+                };
+            }
 
-        return !!json.data.userByEmail;
+            const json = await res.json();
+            console.log('CheckUser response:', json);
+
+            if (json.errors && json.errors.length > 0) {
+                const errorMessage = json.errors[0]?.message || 'Unknown error occurred';
+                console.error('GraphQL errors:', json.errors);
+
+                if (errorMessage.includes('Authentication required')) {
+                    return { exists: false };
+                }
+
+                return {
+                    exists: false,
+                    error: `Unable to verify user: ${errorMessage}`
+                };
+            }
+
+            if (json.data) {
+                return { exists: !!json.data.userByEmail };
+            }
+
+            return { exists: false };
+
+        } catch (error) {
+            console.error('Network error in checkUserExists:', error);
+            return {
+                exists: false,
+                error: `Connection failed: ${error instanceof Error ? error.message : 'Please check your internet connection'}`
+            };
+        }
     }
 
-    async function addUserToPrisma(id: string, email: string) {
+    async function addUserToPrisma(id: string, email: string): Promise<{ success: boolean; user?: any; error?: string }> {
         const mutation = `
-      mutation CreateUser($data: CreateUserInput!) {
-        createUser(data: $data) {
-          id
-          email
-        }
-      }
-    `;
+            mutation CreateUser($data: CreateUserInput!) {
+                createUser(data: $data) {
+                    id
+                    email
+                    firstName
+                    lastName
+                    role
+                    createdAt
+                }
+            }
+        `;
 
         const variables = {
-            data: { id, email }
+            data: {
+                id,
+                email,
+                role: 'Care Worker'
+            }
         };
 
-        const res = await fetch('/api/graphql', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: mutation, variables }),
-        });
+        try {
+            const res = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: mutation,
+                    variables,
+                    operationName: 'CreateUser'
+                }),
+            });
 
-        const json = await res.json();
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Create user server error:', errorText);
+                return {
+                    success: false,
+                    error: `Server error (${res.status}): Failed to create profile`
+                };
+            }
 
-        return json.data.createUser;
+            const json = await res.json();
+            console.log('CreateUser response:', json);
+
+
+            if (json.errors && json.errors.length > 0) {
+                const errorMessage = json.errors[0]?.message || 'Unknown database error';
+                console.error('GraphQL errors in createUser:', json.errors);
+                return {
+                    success: false,
+                    error: `Profile creation failed: ${errorMessage}`
+                };
+            }
+
+
+            if (json.data && json.data.createUser) {
+                return { success: true, user: json.data.createUser };
+            }
+
+            return {
+                success: false,
+                error: 'No user data returned from server'
+            };
+
+        } catch (error) {
+            console.error('Network error in addUserToPrisma:', error);
+            return {
+                success: false,
+                error: `Profile creation failed: ${error instanceof Error ? error.message : 'Network connection error'}`
+            };
+        }
     }
 
     const handleSignUp = async () => {
+
         if (!email || !password || !confirmPassword) {
-            showToast('Please fill in all fields.', 'warning');
+            showToast('Please fill in all required fields', 'warning');
             return;
         }
 
         if (!isValidEmail(email)) {
-            showToast('Please enter a valid email address.', 'warning');
+            showToast('Please enter a valid email address', 'warning');
             return;
         }
 
         if (!passwordValidation.isValid) {
-            showToast('Please ensure your password meets all requirements.', 'warning');
+            showToast('Password must meet all security requirements', 'warning');
             return;
         }
 
         if (password !== confirmPassword) {
-            showToast('Passwords do not match.', 'warning');
+            showToast('Passwords do not match', 'warning');
             return;
         }
 
         setPasswordLoading(true);
 
         try {
-            const exists = await checkUserExists(email.trim().toLowerCase());
 
-            if (exists) {
-                showToast('User with this email already exists.', 'error');
-                setPasswordLoading(false);
+            console.log('Step 1: Checking if user exists...');
+            const userCheck = await checkUserExists(email.trim().toLowerCase());
+
+            if (userCheck.error) {
+                console.error('User check error:', userCheck.error);
+                showToast(`User verification failed: ${userCheck.error}`, 'error');
                 return;
             }
 
-            const { data, error } = await supabase.auth.signUp({
+            if (userCheck.exists) {
+                showToast('An account with this email already exists. Please sign in instead.', 'warning');
+                setTimeout(() => {
+                    router.push('/signin');
+                }, 2000);
+                return;
+            }
+
+            console.log('User does not exist, proceeding with signup...');
+
+
+            console.log('Step 2: Creating Supabase user...');
+            showToast('Creating your account...', 'info');
+
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
                 options: {
@@ -173,52 +266,103 @@ const SignUpPage : React.FC = () => {
                 }
             });
 
-            if (error) {
-                showToast(`Sign up failed: ${error.message}`, 'error');
-                setPasswordLoading(false);
+            if (authError) {
+                console.error('Supabase auth error:', authError);
+                let errorMessage = 'Account creation failed';
+
+
+                if (authError.message.includes('Email rate limit exceeded')) {
+                    errorMessage = 'Too many signup attempts. Please try again in a few minutes.';
+                } else if (authError.message.includes('Password should be at least')) {
+                    errorMessage = 'Password does not meet requirements';
+                } else if (authError.message.includes('Unable to validate email address')) {
+                    errorMessage = 'Invalid email address format';
+                } else {
+                    errorMessage = `Account creation failed: ${authError.message}`;
+                }
+
+                showToast(errorMessage, 'error');
                 return;
             }
 
-            if (!data.user) {
-                showToast('Please check your email to verify your account.', 'warning');
-                setPasswordLoading(false);
+            if (!authData.user) {
+                console.error('No user data returned from Supabase');
+                showToast('Account creation failed: No user data received', 'error');
                 return;
             }
 
-            await addUserToPrisma(data.user.id, data.user.email!);
+            console.log('Supabase user created:', authData.user.id);
 
-            showToast('Account created! Please check your email to verify your account.', 'success');
 
-        } catch (err) {
-            console.error('Unexpected error during signup:', err);
-            showToast('An unexpected error occurred. Please try again.', 'error');
+            console.log('Step 3: Creating user profile in database...');
+            showToast('Setting up your profile...', 'info');
+
+            const profileResult = await addUserToPrisma(authData.user.id, authData.user.email!);
+
+            if (!profileResult.success) {
+                console.error('Profile creation error:', profileResult.error);
+                showToast(`Profile setup failed: ${profileResult.error || 'Unknown error'}`, 'error');
+
+
+                showToast('Your account was created but profile setup is incomplete. Please try signing in.', 'warning');
+                return;
+            }
+
+            console.log('Profile created successfully:', profileResult.user);
+
+            showToast('Account created successfully! Please check your email to verify your account before signing in.', 'success');
+
+            setEmail('');
+            setPassword('');
+            setConfirmPassword('');
+
+            setTimeout(() => {
+                router.push('/signin');
+            }, 3000);
+
+        } catch (error) {
+            console.error('Unexpected error during signup:', error);
+            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+            showToast(`Signup failed: ${errorMessage}. Please try again.`, 'error');
         } finally {
             setPasswordLoading(false);
         }
     };
 
-
     const handleGoogleSignUp = async () => {
         setGoogleLoading(true);
+
         try {
+            showToast('Redirecting to Google...', 'info');
+
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`, 
+                    redirectTo: `${window.location.origin}/auth/callback`,
                 },
             });
 
             if (error) {
-                showToast(`Google sign up failed: ${error.message}`, 'error');
+                console.error('Google OAuth error:', error);
+                let errorMessage = 'Google sign up failed';
+
+                if (error.message.includes('popup')) {
+                    errorMessage = 'Popup was blocked. Please allow popups and try again.';
+                } else if (error.message.includes('network')) {
+                    errorMessage = 'Network error. Please check your connection.';
+                } else {
+                    errorMessage = `Google sign up failed: ${error.message}`;
+                }
+
+                showToast(errorMessage, 'error');
             }
-        } catch (err) {
-            console.error('Google OAuth error:', err);
+        } catch (error) {
+            console.error('Unexpected Google OAuth error:', error);
             showToast('Failed to sign up with Google. Please try again.', 'error');
         } finally {
             setGoogleLoading(false);
         }
     };
-
 
     const isAnyLoading = passwordLoading || googleLoading;
 
@@ -227,7 +371,7 @@ const SignUpPage : React.FC = () => {
             <section className='w-2/5 bg-base-100 h-screen'>
                 <div className='w-full h-[15%] flex items-center pl-10'>
                     <Image
-                        src="/Name.svg"
+                        src={Main}
                         width={110}
                         height={110}
                         alt='Lief'
@@ -351,7 +495,7 @@ const SignUpPage : React.FC = () => {
                                 ) : (
                                     <svg aria-label="Google logo" width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><g><path d="m0 0H512V512H0" fill="#fff"></path><path fill="#34a853" d="M153 292c30 82 118 95 171 60h62v48A192 192 0 0190 341"></path><path fill="#4285f4" d="m386 400a140 175 0 0053-179H260v74h102q-7 37-38 57"></path><path fill="#fbbc02" d="m90 341a208 200 0 010-171l63 49q-12 37 0 73"></path><path fill="#ea4335" d="m153 219c22-69 116-109 179-50l55-54c-78-75-230-72-297 55"></path></g></svg>
                                 )}
-                                {googleLoading ? 'Signing up...' : 'Sign up with Google'}
+                                {googleLoading ? 'Signing up with Google...' : 'Sign up with Google'}
                             </button>
                         </div>
                         <div className="mt-6">
@@ -372,7 +516,6 @@ const SignUpPage : React.FC = () => {
                             <span>Already have an account?</span>
                             <span className="underline cursor-pointer" onClick={SigninClick}>Sign In Now</span>
                         </div>
-
                     </div>
                 </div>
                 <div className='w-full h-[10%] text-xs font-medium center'>
@@ -381,10 +524,17 @@ const SignUpPage : React.FC = () => {
                     </div>
                 </div>
             </section>
-            <section className='w-3/5 bg-base-200 h-screen'>
+            <section className="relative w-3/5 bg-base-200 h-screen ">
+                <Image
+                    src={Illustration}
+                    alt="Illustration"
+                    fill
+                    className="object-contain"
+                    priority
+                />
             </section>
         </main>
-    )
-}
+    );
+};
 
-export default SignUpPage
+export default SignUpPage;

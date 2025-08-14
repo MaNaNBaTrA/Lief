@@ -234,7 +234,6 @@ const DynamicUserProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation */}
         <div className="mb-6">
           <button
             onClick={handleBackToList}
@@ -248,11 +247,9 @@ const DynamicUserProfilePage: React.FC = () => {
         </div>
 
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
-                {/* Profile Image */}
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center">
                   {user.imageUrl ? (
                     <img
@@ -283,7 +280,6 @@ const DynamicUserProfilePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Edit Button */}
               {canEdit && (
                 <button
                   onClick={handleEditProfile}
@@ -295,9 +291,7 @@ const DynamicUserProfilePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Content */}
           <div className="px-6 py-8">
-            {/* Personal Information */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Personal Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -332,7 +326,6 @@ const DynamicUserProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* System Information */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">System Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -411,7 +404,6 @@ const DynamicUserProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Attendance Section */}
         <div className="mt-8">
           <UserAttendanceTable 
             userId={userId}

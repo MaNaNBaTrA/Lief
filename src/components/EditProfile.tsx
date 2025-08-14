@@ -191,13 +191,10 @@ const EditProfilePage: React.FC = () => {
   }
 
   const checkEditAccess = (currentUser: User, targetUserId: string): boolean => {
-    // Users can only edit their own profile
-    // Managers can edit any profile
     if (currentUser.role?.toLowerCase() === 'manager') {
       return true
     }
     
-    // Care workers can only edit their own profile
     return currentUser.id === targetUserId
   }
 
@@ -206,7 +203,6 @@ const EditProfilePage: React.FC = () => {
       try {
         setLoading(true)
         
-        // Get authenticated user from Supabase
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         
         if (authError) {
@@ -214,11 +210,10 @@ const EditProfilePage: React.FC = () => {
         }
 
         if (!authUser) {
-          router.push('/login') // Redirect to login if not authenticated
+          router.push('/login') 
           return
         }
 
-        // Get current user's data from database
         const currentUserData = await getUserById(authUser.id)
         
         if (!currentUserData) {
@@ -227,7 +222,6 @@ const EditProfilePage: React.FC = () => {
 
         setCurrentUser(currentUserData)
 
-        // Check if current user can edit the requested profile
         const hasEditAccess = checkEditAccess(currentUserData, userId)
         
         if (!hasEditAccess) {
@@ -238,7 +232,6 @@ const EditProfilePage: React.FC = () => {
 
         setCanEdit(true)
 
-        // Fetch the target user's profile
         const targetUserData = await getUserById(userId)
         
         if (!targetUserData) {
@@ -247,7 +240,6 @@ const EditProfilePage: React.FC = () => {
 
         setUser(targetUserData)
         
-        // Initialize form with current data
         setEditForm({
           firstName: targetUserData.firstName || '',
           lastName: targetUserData.lastName || '',
@@ -280,7 +272,6 @@ const EditProfilePage: React.FC = () => {
       const updatedUser = await updateUser(user.id, editForm)
       setUser(updatedUser)
       
-      // Redirect back to profile view
       router.push(`/profile/${userId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user')

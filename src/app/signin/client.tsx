@@ -3,9 +3,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
+import { useToast } from '@/context/ToastContext';
+import Main from '../../../public/Images/Lief.svg';
+import Illustration from '../../../public/Images/Illustration.png'
 
-const SignInPage : React.FC = () => {
-
+const SignInPage: React.FC = () => {
     const [checked, setChecked] = useState<boolean>(false)
     const [email, setEmail] = useState<string>('')
     const [password, setPassword] = useState<string>('')
@@ -14,6 +16,7 @@ const SignInPage : React.FC = () => {
     const [googleLoading, setGoogleLoading] = useState<boolean>(false)
 
     const router = useRouter();
+    const { showToast } = useToast();
 
     useEffect(() => {
         const checkUser = async () => {
@@ -25,30 +28,6 @@ const SignInPage : React.FC = () => {
         checkUser();
     }, [router]);
 
-    const showToast = (message: string, type: 'error' | 'warning' | 'success') => {
-        const existingToast = document.querySelector('.toast');
-        if (existingToast) {
-            existingToast.remove();
-        }
-
-        const alertClass = type === 'error' ? 'alert-error' : type === 'warning' ? 'alert-warning' : 'alert-success';
-        
-        const toastContainer = document.createElement('div');
-        toastContainer.className = 'toast toast-top toast-end';
-        toastContainer.innerHTML = `
-            <div class="alert ${alertClass}">
-                <span>${message}</span>
-            </div>
-        `;
-        
-        document.body.appendChild(toastContainer);
-        
-        setTimeout(() => {
-            if (toastContainer.parentNode) {
-                toastContainer.remove();
-            }
-        }, 4000);
-    };
 
     const SignupClick = () => {
         router.push('/signup');
@@ -110,6 +89,7 @@ const SignInPage : React.FC = () => {
 
             if (data.user) {
                 console.log('Sign in successful')
+                showToast('Successfully signed in!', 'success');
                 router.push('/')
             }
         } catch (err: any) {
@@ -222,14 +202,14 @@ const SignInPage : React.FC = () => {
     return (
         <main className='flex '>
             <section className='w-2/5 bg-base-100 h-screen'>
-                  <div className='w-full h-[15%] flex items-center pl-10'>
-                                    <Image
-                                    src="/Name.svg"
-                                    width={110}
-                                    height={110}
-                                    alt='Lief'
-                                    />
-                    </div>
+                <div className='w-full h-[15%] flex items-center pl-10'>
+                    <Image
+                        src={Main}
+                        width={110}
+                        height={110}
+                        alt='Lief'
+                    />
+                </div>
                 <div className='w-full h-[75%] center'>
                     <div className='h-full w-7/10 flex flex-col'>
                         <div className="flex flex-col gap-2">
@@ -240,9 +220,9 @@ const SignInPage : React.FC = () => {
                             <div className="relative border flex rounded-md py-3 px-4 justify-between items-center border-[#d7dce1]">
                                 <div className="text-xs font-medium absolute -top-2 left-2 bg-base-100 px-1 ">Choose your sign in method</div>
                                 <div className="text-sm font-semibold">Password</div>
-                                <input 
-                                    type="checkbox" 
-                                    onChange={(e) => setChecked(e.target.checked)} 
+                                <input
+                                    type="checkbox"
+                                    onChange={(e) => setChecked(e.target.checked)}
                                     className="toggle toggle-info"
                                     disabled={isAnyLoading}
                                 />
@@ -251,15 +231,15 @@ const SignInPage : React.FC = () => {
                             <div className="w-full flex flex-col gap-2">
                                 <span className="font-medium text-sm ">Email</span>
                                 <label className="floating-label">
-                                    <span >Your Email</span>
-                                    <input 
-                                        type="email" 
-                                        placeholder="mail@site.com" 
-                                        className="input input-md w-full " 
+                                    <span>Your Email</span>
+                                    <input
+                                        type="email"
+                                        placeholder="mail@site.com"
+                                        className="input input-md w-full "
                                         onChange={(e) => setEmail(e.target.value)}
                                         disabled={isAnyLoading}
-                                        required 
-                                        value={email} 
+                                        required
+                                        value={email}
                                     />
                                 </label>
                             </div>
@@ -272,14 +252,14 @@ const SignInPage : React.FC = () => {
 
                                     <label className="floating-label">
                                         <span>Your Password</span>
-                                        <input 
-                                            type="password" 
-                                            placeholder="password" 
-                                            className="input input-md w-full " 
+                                        <input
+                                            type="password"
+                                            placeholder="password"
+                                            className="input input-md w-full "
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             disabled={isAnyLoading}
-                                            required 
+                                            required
                                         />
                                     </label>
                                 </div>
@@ -291,9 +271,9 @@ const SignInPage : React.FC = () => {
                             <hr className="flex-grow border-t border-gray-300" />
                         </div>
                         <div className="">
-                            <button 
-                                className="btn bg-info text-black border-[#e5e5e5] w-full rounded-md" 
-                                onClick={handleGoogleLogin} 
+                            <button
+                                className="btn bg-info text-black border-[#e5e5e5] w-full rounded-md"
+                                onClick={handleGoogleLogin}
                                 disabled={isAnyLoading}
                             >
                                 {googleLoading ? (
@@ -305,8 +285,8 @@ const SignInPage : React.FC = () => {
                             </button>
                         </div>
                         <div className="mt-6">
-                            <button 
-                                className="btn bg-white text-black border-[#e5e5e5] w-full rounded-md flex items-center justify-center" 
+                            <button
+                                className="btn bg-white text-black border-[#e5e5e5] w-full rounded-md flex items-center justify-center"
                                 onClick={checked === true ? handleLoginWithMagic : handleLoginWithPassword}
                                 disabled={isAnyLoading}
                             >
@@ -315,8 +295,8 @@ const SignInPage : React.FC = () => {
                                 ) : (
                                     <svg aria-label="Email icon" width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" fill="none" stroke="black"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></g></svg>
                                 )}
-                                {checked ? 
-                                    (magicLoading ? 'Sending Magic Link...' : 'Send Magic Link') : 
+                                {checked ?
+                                    (magicLoading ? 'Sending Magic Link...' : 'Send Magic Link') :
                                     (passwordLoading ? 'Signing in...' : 'Sign in with Mail')
                                 }
                             </button>
@@ -325,7 +305,6 @@ const SignInPage : React.FC = () => {
                             <span>Don't have an account?</span>
                             <span className="underline cursor-pointer" onClick={SignupClick}>Sign Up Now</span>
                         </div>
-
                     </div>
                 </div>
                 <div className='w-full h-[10%] text-xs font-medium center'>
@@ -334,9 +313,16 @@ const SignInPage : React.FC = () => {
                     </div>
                 </div>
             </section>
-            <section className='w-3/5 bg-base-200 h-screen'>
-
+            <section className="relative w-3/5 bg-base-200 h-screen ">
+                <Image
+                    src={Illustration}
+                    alt="Illustration"
+                    fill
+                    className="object-contain" 
+                    priority
+                />
             </section>
+
         </main>
     )
 }
