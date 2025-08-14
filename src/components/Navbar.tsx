@@ -704,7 +704,7 @@ const Navbar: React.FC = () => {
                 <button
                     type="button"
                     className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer"
-                    onClick={() => router.push('/dashboard')}
+                    onClick={() => router.push('/manager/dashboard')}
                 >
                     Dashboard
                 </button>
