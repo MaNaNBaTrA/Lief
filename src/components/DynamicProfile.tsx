@@ -3,7 +3,10 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Image from 'next/image'
 import UserAttendanceTable from '@/ui/Attendance'
+import Loader from '@/components/LottieLoader'
+import Placeholder from '../../public/Images/Profile-Placeholder.png'
 
 interface User {
   id: string
@@ -183,11 +186,8 @@ const DynamicUserProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader width={400} height={400}/>
       </div>
     )
   }
@@ -250,18 +250,15 @@ const DynamicUserProfilePage: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center">
-                  {user.imageUrl ? (
-                    <img
-                      src={user.imageUrl}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <svg className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  )}
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center relative">
+                  <Image
+                    src={user.imageUrl || Placeholder}
+                    alt="Profile"
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover rounded-full"
+                    priority
+                  />
                 </div>
 
                 <div>
@@ -383,7 +380,6 @@ const DynamicUserProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="pt-6 border-t border-gray-200 flex gap-4">
               {canEdit && (
                 <button

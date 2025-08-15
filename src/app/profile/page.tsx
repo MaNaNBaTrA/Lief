@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Loader from '@/components/LottieLoader'
 
 export default function CurrentUserProfile() {
   const router = useRouter()
@@ -29,11 +30,8 @@ export default function CurrentUserProfile() {
   }, [router, supabase])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting to your profile...</p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader width={400} height={400}/>
     </div>
   )
 }

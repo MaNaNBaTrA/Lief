@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import Loader from '@/components/LottieLoader'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -56,15 +57,10 @@ export default function AuthCallback() {
     if (!session?.user?.email) return;
     
     try {
-      //console.log('🔍 Checking if user exists in database:', session.user.email);
       const userExists = await checkUserExists(session.user.email);
       
       if (!userExists) {
-        //console.log('➕ Creating new user in database');
         await addUserToPrisma(session.user.id, session.user.email);
-        //console.log('✅ New user created in database');
-      } else {
-        //console.log('👤 User already exists in database');
       }
     } catch (error) {
       console.error('❌ Error handling user in database:', error);
@@ -72,37 +68,21 @@ export default function AuthCallback() {
   }
 
   useEffect(() => {
-    //console.log('🚀 AUTH CALLBACK PAGE LOADED')
-    //console.log('Current URL:', window.location.href)
-    //console.log('URL params:', window.location.search)
-
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      //console.log('🔄 Auth state change:', event)
-      //console.log('Session from state change:', !!session, session?.user?.email)
-      
       if (session) {
-        //console.log('✅ Has session, handling database and redirecting to /')
         await handleUserInDatabase(session);
-        router.replace('/') 
+        router.replace('/')
       } else {
-        //console.log('❌ No session, redirecting to signin')
         router.replace('/signin')
       }
     })
 
-   
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      //console.log('📋 Initial session check:', !!session, session?.user?.email)
-      //console.log('Session error:', error)
-      
       if (session) {
-        //console.log('✅ Initial session found, handling database and redirecting to /')
         await handleUserInDatabase(session);
         router.replace('/')
-      } else {
-        //console.log('❌ No initial session found')
       }
     })
 
@@ -111,5 +91,9 @@ export default function AuthCallback() {
     }
   }, [router])
 
-  return <p>Redirecting... (check console for logs)</p>
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader width={400} height={400}/>
+    </div>
+  )
 }

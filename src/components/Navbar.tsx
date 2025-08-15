@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { LogOut, UserRoundCheck, User, Clock} from 'lucide-react'
+import { LogOut, UserRoundCheck, Clock, MapPin } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { User as SupabaseUser } from '@supabase/supabase-js'
 import { useToast } from '@/context/ToastContext' 
+import Loader from '@/components/LottieLoader'
+import Placeholder from '../../public/Images/Profile-Placeholder.png'
 
 interface UserProfile {
     id: string
@@ -15,6 +17,7 @@ interface UserProfile {
     lastName?: string | null
     imageUrl?: string | null
     totalWorkingHours?: string | null
+    role?: string | null 
 }
 
 interface OfficeLocation {
@@ -70,6 +73,10 @@ const Navbar: React.FC = () => {
     const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([])
     const [currentOffice, setCurrentOffice] = useState<OfficeLocation | null>(null)
     const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+    const isManager = (): boolean => {
+        return userProfile?.role?.toLowerCase() === 'manager'
+    }
 
     const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
         const R = 6371
@@ -266,20 +273,6 @@ const Navbar: React.FC = () => {
         })
     }
 
-    // const formatTimeForDisplay = (utcTime: string): string => {
-    //     if (!utcTime) return ''
-    //     const date = new Date(utcTime)
-    //     return date.toLocaleString("en-US", {
-    //         timeZone: DEFAULT_TIMEZONE,
-    //         year: 'numeric',
-    //         month: 'short',
-    //         day: '2-digit',
-    //         hour: '2-digit',
-    //         minute: '2-digit',
-    //         second: '2-digit'
-    //     })
-    // }
-
     const calculateHoursWorked = (checkInTime: string, checkOutTime?: string): number => {
         try {
             if (!checkInTime || typeof checkInTime !== 'string' || checkInTime.trim() === '') {
@@ -457,6 +450,7 @@ const Navbar: React.FC = () => {
                                 lastName
                                 imageUrl
                                 totalWorkingHours
+                                role
                             }
                         }
                     `,
@@ -630,11 +624,12 @@ const Navbar: React.FC = () => {
         router.replace('/signin')
     }
 
-    const getProfileImageSrc = (): string => {
-        if (userProfile?.imageUrl) {
-            return userProfile.imageUrl
-        }
-        return "/favicon.ico"
+    const handleDashboardClick = (): void => {
+        router.push('/manager/dashboard')
+    }
+
+    const handleLocationClick = (): void => {
+        router.push('/manager/location')
     }
 
     const getUserDisplayName = (): string => {
@@ -700,6 +695,14 @@ const Navbar: React.FC = () => {
         }
     }, [])
 
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader width={400} height={400}/>
+            </div>
+        )
+    }
+
     return (
         <header className="flex items-center py-4 px-16 justify-between bg-bg border-b-2 border-border">
             <div>
@@ -713,13 +716,26 @@ const Navbar: React.FC = () => {
             </div>
 
             <nav className="flex items-center gap-12">
-                <button
-                    type="button"
-                    className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer"
-                    onClick={() => router.push('/manager/dashboard')}
-                >
-                    Dashboard
-                </button>
+                {isManager() && (
+                    <>
+                        <button
+                            type="button"
+                            className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer"
+                            onClick={handleDashboardClick}
+                        >
+                            Dashboard
+                        </button>
+
+                        <button
+                            type="button"
+                            className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer flex items-center gap-2"
+                            onClick={handleLocationClick}
+                        >
+                            <MapPin size={20} strokeWidth={1.7} />
+                            Location
+                        </button>
+                    </>
+                )}
 
                 <button
                     type="button"
@@ -738,7 +754,7 @@ const Navbar: React.FC = () => {
                 >
                     {isLocationLoading ? (
                         <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            <Loader />
                             Getting Location...
                         </>
                     ) : (
@@ -755,27 +771,14 @@ const Navbar: React.FC = () => {
                     onClick={() => router.push('/profile')}
                     title={getUserDisplayName()}
                 >
-                    {loading ? (
-                        <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
-                            <User size={20} className="text-gray-400" />
-                        </div>
-                    ) : userProfile?.imageUrl ? (
-                        <Image
-                            src={getProfileImageSrc()}
-                            alt={`${getUserDisplayName()} Profile`}
-                            width={48}
-                            height={48}
-                            className="object-cover w-full h-full"
-                            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                                const target = e.currentTarget as HTMLImageElement
-                                target.src = "/favicon.ico"
-                            }}
-                        />
-                    ) : (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                            <User size={20} className="text-gray-600" />
-                        </div>
-                    )}
+                    <Image
+                        src={userProfile?.imageUrl || Placeholder}
+                        alt={`${getUserDisplayName()} Profile`}
+                        width={48}
+                        height={48}
+                        className="object-cover w-full h-full"
+                        priority
+                    />
                 </button>
             </nav>
 

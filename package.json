@@ -24,6 +24,7 @@
     "graphql": "^16.11.0",
     "graphql-tag": "^2.12.6",
     "install": "^0.13.0",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.539.0",
     "next": "15.4.6",
     "npm": "^11.5.2",
