@@ -7,6 +7,11 @@ import Image from 'next/image'
 import UserAttendanceTable from '@/ui/Attendance'
 import Loader from '@/components/LottieLoader'
 import Placeholder from '../../public/Images/Profile-Placeholder.png'
+import PersonIcon from '@mui/icons-material/Person';
+import ModeEditIcon from '@mui/icons-material/ModeEdit';
+import HomeFilledIcon from '@mui/icons-material/HomeFilled';
+import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
+import EditLocationAltIcon from '@mui/icons-material/EditLocationAlt';
 
 interface User {
   id: string
@@ -35,13 +40,13 @@ interface GetUserByIdResponse {
   getUserById: User
 }
 
-const DynamicUserProfilePage: React.FC = () => {
+const DynamicProfile = () => {
   const [user, setUser] = useState<User | null>(null)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [canAccess, setCanAccess] = useState(false)
-  
+
   const router = useRouter()
   const params = useParams()
   const userId = params?.id as string
@@ -85,7 +90,7 @@ const DynamicUserProfilePage: React.FC = () => {
       }
 
       const result: GraphQLResponse<GetUserByIdResponse> = await response.json()
-      
+
       if (result.errors && result.errors.length > 0) {
         throw new Error(result.errors[0].message || 'GraphQL error occurred')
       }
@@ -105,7 +110,7 @@ const DynamicUserProfilePage: React.FC = () => {
     if (currentUser.role?.toLowerCase() === 'manager') {
       return true
     }
-    
+
     if (currentUser.role?.toLowerCase() === 'care worker' || !currentUser.role) {
       return currentUser.id === targetUserId
     }
@@ -118,9 +123,9 @@ const DynamicUserProfilePage: React.FC = () => {
       try {
         setLoading(true)
         setError(null)
-        
+
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-        
+
         if (authError) {
           throw new Error('Authentication error: ' + authError.message)
         }
@@ -130,7 +135,7 @@ const DynamicUserProfilePage: React.FC = () => {
         }
 
         const currentUserData = await getUserById(authUser.id)
-        
+
         if (!currentUserData) {
           throw new Error('Current user not found in database')
         }
@@ -138,7 +143,7 @@ const DynamicUserProfilePage: React.FC = () => {
         setCurrentUser(currentUserData)
 
         const hasAccess = checkAccess(currentUserData, userId)
-        
+
         if (!hasAccess) {
           setError('Access denied. You can only view profiles you have permission to access.')
           setCanAccess(false)
@@ -148,13 +153,13 @@ const DynamicUserProfilePage: React.FC = () => {
         setCanAccess(true)
 
         const targetUserData = await getUserById(userId)
-        
+
         if (!targetUserData) {
           throw new Error('User not found')
         }
 
         setUser(targetUserData)
-        
+
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
         setError(errorMessage)
@@ -176,18 +181,30 @@ const DynamicUserProfilePage: React.FC = () => {
     }
   }
 
+  const handleLocation = (): void => {
+    router.push('/manager/location')
+  }
+
+  const handleDashboard = (): void => {
+    router.push('/manager/dashboard')
+  }
+
   const handleBackToList = (): void => {
     if (currentUser?.role?.toLowerCase() === 'manager') {
-      router.push('/manager/dashboard') 
+      router.push('/manager/dashboard')
     } else {
-      router.push('/') 
+      router.push('/')
     }
+  }
+
+  const getUserDisplayName = (): string => {
+    return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader width={400} height={400}/>
+        <Loader width={400} height={400} />
       </div>
     )
   }
@@ -230,186 +247,100 @@ const DynamicUserProfilePage: React.FC = () => {
 
   const isOwnProfile = currentUser?.id === user.id
   const canEdit = isOwnProfile || currentUser?.role?.toLowerCase() === 'manager'
+  const isManager = currentUser?.role?.toLowerCase() === 'manager'
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <button
-            onClick={handleBackToList}
-            className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
+    <div className='w-screen h-screen bg-bg p-8 flex gap-8'>
+      <div className='w-[20%]  bg-white rounded-xl flex flex-col items-center p-8 gap-4 sticky top-8'>
+        <div className='flex flex-col items-center gap-2'>
+          <div className="w-40 h-40 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center relative">
+            <Image
+              src={user.imageUrl || Placeholder}
+              alt="Profile"
+              width={96}
+              height={96}
+              className="w-full h-full object-cover rounded-full"
+              priority
+            />
+          </div>
+          <div className='font-semibold text-text text-2xl'>{getUserDisplayName()}</div>
+          <div className='font-semibold text-stext '>{user.role || 'Care Worker'}</div>
         </div>
-
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center relative">
-                  <Image
-                    src={user.imageUrl || Placeholder}
-                    alt="Profile"
-                    width={96}
-                    height={96}
-                    className="w-full h-full object-cover rounded-full"
-                    priority
-                  />
-                </div>
-
-                <div>
-                  <h1 className="text-3xl font-bold text-white">
-                    {user.firstName || user.lastName 
-                      ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
-                      : 'User Profile'
-                    }
-                  </h1>
-                  <p className="text-blue-100 mt-1">{user.role || 'Care Worker'}</p>
-                  {!isOwnProfile && (
-                    <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-500 text-white rounded">
-                      Viewing as {currentUser?.role || 'Manager'}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {canEdit && (
-                <button
-                  onClick={handleEditProfile}
-                  className="px-4 py-2 bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors font-medium"
-                >
-                  Edit Profile
-                </button>
-              )}
+        <div className='flex items-center gap-3 bg-[#47f2ca80] py-2 px-3 rounded-xl w-full cursor-pointer'>
+          <PersonIcon />
+          <span className='font-semibold'>Personal Information</span>
+        </div>
+        <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full  cursor-pointer'
+          onClick={handleEditProfile}
+        >
+          <ModeEditIcon />
+          <span className='font-semibold'>Edit</span>
+        </div>
+        <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
+          onClick={() => router.push('/')}
+        >
+          <HomeFilledIcon sx={{ fontSize: 20 }} />
+          <span className='font-semibold'>Back To Home</span>
+        </div>
+        {isManager &&
+          <>
+            <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
+              onClick={() => router.push('/manager/dashboard')}
+            >
+              <SpaceDashboardIcon />
+              <span className='font-semibold'>Dashboard</span>
+            </div>
+            <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
+              onClick={() => router.push('/manager/location')}
+            >
+              <EditLocationAltIcon/>
+              <span className='font-semibold'>Office Location</span>
+            </div>
+          </>
+        }
+      </div>
+      
+      <div className='w-[80%]  overflow-y-auto '>
+        <div className='bg-white rounded-xl p-8 flex flex-col gap-6'>
+          <div className='font-semibold text-2xl text-text '>Personal Information</div>
+          <div className='grid grid-cols-3 gap-6'>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600 '>Gender</span>
+              <span className='text-text'>{user.gender || 'Not specified'}</span>
+            </div>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600 '>Name</span>
+              <span className='text-text'>{getUserDisplayName()}</span>
+            </div>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600 '>User ID</span>
+              <span className='font-mono text-sm bg-gray-100 px-2 py-1 rounded text-text'>{user.id}</span>
+            </div>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600'>Email</span>
+              <span className='text-text'>{user.email}</span>
+            </div>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600 '>Phone</span>
+              <span className='text-text'>{user.number || 'Not provided'}</span>
+            </div>
+            <div className='flex flex-col'>
+              <span className='font-semibold text-gray-600'>Address</span>
+              <span className='text-text'>{user.address || 'Not provided'}</span>
             </div>
           </div>
-
-          <div className="px-6 py-8">
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Personal Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">First Name</label>
-                    <p className="mt-1 text-lg text-gray-900">{user.firstName || 'Not provided'}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Last Name</label>
-                    <p className="mt-1 text-lg text-gray-900">{user.lastName || 'Not provided'}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Gender</label>
-                    <p className="mt-1 text-lg text-gray-900">{user.gender || 'Not specified'}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Phone Number</label>
-                    <p className="mt-1 text-lg text-gray-900">{user.number || 'Not provided'}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Address</label>
-                    <p className="mt-1 text-lg text-gray-900">{user.address || 'Not provided'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">System Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">User ID</label>
-                  <p className="mt-1 text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded">{user.id}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Email</label>
-                  <p className="mt-1 text-lg text-gray-900">{user.email}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Role</label>
-                  <p className="mt-1">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      {user.role || 'Care Worker'}
-                    </span>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Reporting Time</label>
-                  <p className="mt-1 text-lg text-gray-900">{user.reportingTime || 'Not set'}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Working Hours</label>
-                  <p className="mt-1 text-lg text-gray-900">
-                    {user.totalWorkingHours ? `${user.totalWorkingHours} hours/day` : 'Not set'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Location</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {user.latitude && user.longitude 
-                      ? `${user.latitude.toFixed(4)}, ${user.longitude.toFixed(4)}`
-                      : 'Not set'
-                    }
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">Member Since</label>
-                  <p className="mt-1 text-lg text-gray-900">
-                    {new Date(user.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-gray-200 flex gap-4">
-              {canEdit && (
-                <button
-                  onClick={handleEditProfile}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Edit Profile
-                </button>
-              )}
-              
-              <button
-                onClick={handleBackToList}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Go Back
-              </button>
-            </div>
+          
+          <div className='w-full'>
+            <UserAttendanceTable 
+              userId={userId}
+              showAllUsers={false}
+              maxRows={25} 
+            />
           </div>
-        </div>
-
-        <div className="mt-8">
-          <UserAttendanceTable 
-            userId={userId}
-            showAllUsers={false}
-            maxRows={10}
-          />
         </div>
       </div>
     </div>
   )
 }
 
-export default DynamicUserProfilePage;
+export default DynamicProfile

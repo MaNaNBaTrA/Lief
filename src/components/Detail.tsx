@@ -5,6 +5,8 @@ import Image from 'next/image'
 import Card from '@/ui/Card'
 import { UserRoundCheck, ClockPlus, Clock2, UserRoundX, User } from 'lucide-react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Loader from '@/components/LottieLoader' 
+import Placeholder from '../../public/Images/Profile-Placeholder.png'
 
 interface User {
   id: string
@@ -23,7 +25,6 @@ const Detail : React.FC = () => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [imageError, setImageError] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -99,28 +100,20 @@ const Detail : React.FC = () => {
     fetchUserData()
   }, [])
 
-  const handleImageError = () => {
-    setImageError(true)
+  const getUserDisplayName = () => {
+    return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
   }
 
   const ProfileImage = () => {
-    if (!user?.imageUrl || imageError) {
-      return (
-        <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-          <User className="w-10 h-10 text-gray-400" />
-        </div>
-      )
-    }
-
     return (
-      <div className="w-20 h-20 relative">
+      <div className="w-20 h-20 relative rounded-full overflow-hidden border-2 border-gray-200">
         <Image
-          src={user.imageUrl}
-          alt={`${user.firstName || 'User'}'s profile`}
-          fill
-          className="rounded-full object-cover border-2 border-gray-200"
+          src={user?.imageUrl || Placeholder}
+          alt={`${getUserDisplayName()} Profile`}
+          width={80}
+          height={80}
+          className="object-cover w-full h-full"
           priority
-          onError={handleImageError}
         />
       </div>
     )
@@ -131,7 +124,7 @@ const Detail : React.FC = () => {
       <div className='bg-white w-19/20 rounded-xl mt-6 p-6 flex flex-col gap-8'>
         <div className='w-full font-semibold text-text text-lg'>Care Worker Details</div>
         <div className='flex items-center justify-center py-12'>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <Loader />
           <span className="ml-3 text-text">Loading user data...</span>
         </div>
       </div>
@@ -171,7 +164,7 @@ const Detail : React.FC = () => {
     Address: user.address || 'Not provided'
   }
 
-  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'User'
+  const fullName = getUserDisplayName()
 
   return (
     <div className='bg-white w-19/20 rounded-xl mt-6 p-6 flex flex-col gap-8'>

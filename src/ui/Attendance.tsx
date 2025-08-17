@@ -32,6 +32,7 @@ import {
   Info
 } from '@mui/icons-material'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Loader from '@/components/LottieLoader';
 
 interface Attendance {
   userId: string
@@ -242,104 +243,81 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     }
   }, [attendances, userId])
 
-  const formatDateTime = (dateTime?: string | null): string => {
-    if (!dateTime || typeof dateTime !== 'string') return 'N/A'
+  const parseDateTime = (dateTime?: string | null): Date | null => {
+    if (!dateTime || typeof dateTime !== 'string') return null
+    
     try {
-      let date: Date
-      
       if (/^\d+$/.test(dateTime.toString().trim())) {
         const timestamp = parseInt(dateTime.toString())
-        date = new Date(timestamp)
+        return new Date(timestamp)
       } else {
-        let isoString = dateTime
-        if (dateTime.includes(' ') && !dateTime.includes('T')) {
-          isoString = dateTime.replace(' ', 'T') + 'Z'
+        let dateToProcess = dateTime.toString().trim()
+        let date = new Date(dateToProcess)
+        
+        if (isNaN(date.getTime()) && dateToProcess.includes(' ') && !dateToProcess.includes('T')) {
+          const isoString = dateToProcess.replace(' ', 'T')
+          date = new Date(isoString)
+          
+          if (isNaN(date.getTime())) {
+            const isoStringWithZ = dateToProcess.replace(' ', 'T') + 'Z'
+            date = new Date(isoStringWithZ)
+          }
         }
         
-        date = new Date(isoString)
-        if (isNaN(date.getTime())) {
-          const fallbackDate = new Date(dateTime)
-          if (isNaN(fallbackDate.getTime())) return 'N/A'
-          date = fallbackDate
-        }
+        return isNaN(date.getTime()) ? null : date
       }
-      
-      if (isNaN(date.getTime())) return 'N/A'
-      
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
     } catch (error) {
       console.log('Date parsing error:', error, 'for value:', dateTime)
-      return 'N/A'
+      return null
     }
   }
 
+  const formatDateTime = (dateTime?: string | null): string => {
+    const date = parseDateTime(dateTime)
+    if (!date) return 'N/A'
+    
+    if (dateTime && /^\d+$/.test(dateTime.toString().trim())) {
+      const year = date.getUTCFullYear()
+      const month = date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
+      const day = date.getUTCDate()
+      const hours = date.getUTCHours()
+      const minutes = date.getUTCMinutes()
+      
+      const period = hours >= 12 ? 'PM' : 'AM'
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+      const timeString = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`
+      
+      return `${month} ${day}, ${year}, ${timeString}`
+    }
+    
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   const formatTime = (dateTime?: string | null): string => {
-    console.log('Formatting time for:', dateTime, 'Type:', typeof dateTime)
+    const date = parseDateTime(dateTime)
+    if (!date) return 'N/A'
     
-    if (!dateTime || dateTime === null || dateTime === undefined || typeof dateTime !== 'string') {
-      console.log('No valid dateTime provided')
-      return 'N/A'
+    if (dateTime && /^\d+$/.test(dateTime.toString().trim())) {
+      const hours = date.getUTCHours()
+      const minutes = date.getUTCMinutes()
+      
+      const period = hours >= 12 ? 'PM' : 'AM'
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+      return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`
     }
     
-    try {
-      let date: Date
-      
-      if (/^\d+$/.test(dateTime.toString().trim())) {
-        console.log('Detected Unix timestamp:', dateTime)
-        const timestamp = parseInt(dateTime.toString())
-        
-        const utcDate = new Date(timestamp)
-        console.log('UTC Date from timestamp (this is actually India time):', utcDate.toISOString())
-        
-        const hours = utcDate.getUTCHours()
-        const minutes = utcDate.getUTCMinutes()
-        
-        const period = hours >= 12 ? 'PM' : 'AM'
-        const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-        const formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`
-        
-        console.log('Manually formatted time (treating timestamp as India time):', formattedTime)
-        return formattedTime
-        
-      } else {
-        let dateToProcess = dateTime.toString().trim()
-        
-        date = new Date(dateToProcess)
-        
-        if (isNaN(date.getTime()) && dateToProcess.includes(' ')) {
-          const isoString = dateToProcess.replace(' ', 'T')
-          date = new Date(isoString)
-        }
-        
-        if (isNaN(date.getTime()) && dateToProcess.includes(' ')) {
-          const isoString = dateToProcess.replace(' ', 'T') + 'Z'
-          date = new Date(isoString)
-        }
-        
-        if (isNaN(date.getTime())) {
-          return 'N/A'
-        }
-        
-        const formattedTime = date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        })
-        
-        return formattedTime
-      }
-      
-    } catch (error) {
-      console.log('Date parsing error:', error, 'for value:', dateTime)
-      return 'N/A'
-    }
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
   }
 
   const getStatusChip = (attendance: Attendance): React.ReactElement => {
@@ -394,12 +372,9 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading attendance data...
-        </Typography>
-      </Box>
+      <div className='center w-full h-full'>
+        <Loader width={400} height={400}/>
+      </div>
     )
   }
 
@@ -615,7 +590,7 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
                               
                               <Box>
                                 <Typography variant="caption" color="text.secondary" display="block">
-                                  Full Check-in Time
+                                  Check-in Time (with Date)
                                 </Typography>
                                 <Typography variant="body2">
                                   {formatDateTime(attendance.checkInTime)}
@@ -624,7 +599,7 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
                               
                               <Box>
                                 <Typography variant="caption" color="text.secondary" display="block">
-                                  Full Check-out Time
+                                  Check-out Time (with Date)
                                 </Typography>
                                 <Typography variant="body2">
                                   {formatDateTime(attendance.checkOutTime)}
@@ -657,4 +632,4 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
   )
 }
 
-export default UserAttendanceTable
+export default UserAttendanceTable;

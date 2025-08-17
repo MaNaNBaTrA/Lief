@@ -1,8 +1,16 @@
 'use client'
+
 import React, { useState, useEffect } from 'react';
-import { MapPin, Save, Edit2, Building2, Globe } from 'lucide-react';
-import Loader from '@/components/LottieLoader'
-import { useToast } from '@/context/ToastContext'
+import { useRouter } from 'next/navigation';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import EditIcon from '@mui/icons-material/Edit';
+import BusinessIcon from '@mui/icons-material/Business';
+import PublicIcon from '@mui/icons-material/Public';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import HomeFilledIcon from '@mui/icons-material/HomeFilled';
+import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
+import { useToast } from '@/context/ToastContext';
+import Loader from '@/components/LottieLoader';
 
 interface Office {
     id: string;
@@ -28,10 +36,7 @@ interface UpdateOfficeData {
     updateOfficeLocation: Office;
 }
 
-
-
-const Location: React.FC = () => {
-    const { showToast } = useToast();
+const LocationManager = () => {
     const [officeLocation, setOfficeLocation] = useState<Office | null>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [form, setForm] = useState<{ name: string; latitude: string; longitude: string }>({
@@ -41,6 +46,12 @@ const Location: React.FC = () => {
     });
     const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
+    const [gettingLocation, setGettingLocation] = useState<boolean>(false);
+    const [hasChanges, setHasChanges] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const { showToast } = useToast();
+    const router = useRouter();
 
     const executeGraphQL = async <T,>(query: string, variables: Record<string, any> = {}): Promise<T> => {
         const response = await fetch('/api/graphql', {
@@ -110,6 +121,58 @@ const Location: React.FC = () => {
         fetchOfficeLocation();
     }, []);
 
+    const handleInputChange = (field: string, value: string) => {
+        setForm(prev => ({ ...prev, [field]: value }));
+        if (!hasChanges) {
+            setHasChanges(true);
+            showToast('You have unsaved changes', 'warning');
+        }
+    };
+
+    const getCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            showToast('Geolocation is not supported by this browser', 'error');
+            return;
+        }
+
+        setGettingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setForm(prev => ({
+                    ...prev,
+                    latitude: latitude.toFixed(6),
+                    longitude: longitude.toFixed(6)
+                }));
+                setHasChanges(true);
+                setGettingLocation(false);
+                showToast('Current location retrieved successfully!', 'success');
+            },
+            (error) => {
+                setGettingLocation(false);
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        showToast('Location access denied by user', 'error');
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        showToast('Location information is unavailable', 'error');
+                        break;
+                    case error.TIMEOUT:
+                        showToast('Location request timed out', 'error');
+                        break;
+                    default:
+                        showToast('An unknown error occurred while retrieving location', 'error');
+                        break;
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+
     const handleSave = async (): Promise<void> => {
         if (!form.name.trim()) {
             showToast('Office name is required', 'error');
@@ -136,6 +199,7 @@ const Location: React.FC = () => {
 
         try {
             setSaving(true);
+            setError(null);
 
             let result: Office;
 
@@ -186,11 +250,14 @@ const Location: React.FC = () => {
 
             setOfficeLocation(result);
             setIsEditing(false);
+            setHasChanges(false);
             showToast('Office location saved successfully', 'success');
 
         } catch (error) {
             console.error('Error saving office location:', error);
-            showToast(error instanceof Error ? error.message : 'Failed to save office location', 'error');
+            const errorMsg = error instanceof Error ? error.message : 'Failed to save office location';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
         } finally {
             setSaving(false);
         }
@@ -204,195 +271,220 @@ const Location: React.FC = () => {
                 longitude: officeLocation.longitude.toString()
             });
             setIsEditing(false);
+            setHasChanges(false);
         } else {
             setForm({ name: '', latitude: '', longitude: '' });
         }
+        setError(null);
+        showToast('Changes discarded', 'info');
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader width={400} height={400} />
-                </div>
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader width={400} height={400} />
             </div>
         );
     }
 
     return (
-        <>
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-                <div className="max-w-4xl mx-auto px-4 py-8">
-                    {/* Header */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-8 mb-8 backdrop-blur-sm">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <Building2 className="w-8 h-8 text-blue-600" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold text-slate-900">Manager Dashboard</h1>
-                                <p className="text-slate-600 mt-1 text-lg">Configure your office location settings</p>
-                            </div>
-                        </div>
+        <div className='w-screen h-full bg-bg p-8 flex gap-8'>
+            <div className='w-[20%] h-[calc(100vh-4rem)] bg-white rounded-xl flex flex-col items-center p-8 gap-4 sticky top-8'>
+                <div className='flex flex-col items-center gap-2'>
+                    <div className="w-40 h-40 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
+                        <BusinessIcon sx={{ fontSize: 80, color: '#2563eb' }} />
                     </div>
+                    <div className='font-semibold text-text text-2xl'>Location Manager</div>
+                    <div className='font-semibold text-stext'>Office Settings</div>
+                </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden backdrop-blur-sm">
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-slate-200/60">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <MapPin className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-semibold text-slate-900">Office Location</h2>
-                                    <p className="text-slate-600 text-sm">Set your primary office coordinates</p>
-                                </div>
-                            </div>
-                        </div>
+                <div className='flex items-center gap-3 bg-[#47f2ca80] py-2 px-3 rounded-xl w-full cursor-pointer'>
+                    <LocationOnIcon sx={{ fontSize: 20 }} />
+                    <span className='font-semibold'>Edit Location</span>
+                </div>
 
-                        <div className="p-8">
-                            {!officeLocation && !isEditing ? (
-                                <div className="text-center py-12">
-                                    <div className="p-6 bg-slate-50 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                                        <MapPin className="w-10 h-10 text-slate-400" />
-                                    </div>
-                                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No office location configured</h3>
-                                    <p className="text-slate-600 mb-8 max-w-md mx-auto">
-                                        Configure your office location to enable location-based features for your team.
-                                    </p>
-                                    <button
-                                        onClick={() => setIsEditing(true)}
-                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                    >
-                                        Configure Location
-                                    </button>
-                                </div>
-                            ) : isEditing ? (
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-3">
-                                            Office Name
-                                        </label>
-                                        <div className="relative">
-                                            <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                value={form.name}
-                                                onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                                                className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white"
-                                                placeholder="Enter office name (e.g., Main Office, Delhi Branch)"
-                                            />
-                                        </div>
-                                    </div>
+                <div className='flex items-center gap-3 py-2 px-3 rounded-xl w-full cursor-pointer'
+                    onClick={() => router.push('/')}
+                >
+                    <HomeFilledIcon sx={{ fontSize: 20 }} />
+                    <span className='font-semibold'>Back To Home</span>
+                </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-3">
-                                                Latitude
-                                            </label>
-                                            <div className="relative">
-                                                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                                <input
-                                                    type="number"
-                                                    step="any"
-                                                    value={form.latitude}
-                                                    onChange={(e) => setForm(prev => ({ ...prev, latitude: e.target.value }))}
-                                                    className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white"
-                                                    placeholder="28.6139"
-                                                />
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-1">Range: -90 to 90</p>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-3">
-                                                Longitude
-                                            </label>
-                                            <div className="relative">
-                                                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                                <input
-                                                    type="number"
-                                                    step="any"
-                                                    value={form.longitude}
-                                                    onChange={(e) => setForm(prev => ({ ...prev, longitude: e.target.value }))}
-                                                    className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white"
-                                                    placeholder="77.2090"
-                                                />
-                                            </div>
-                                            <p className="text-xs text-slate-500 mt-1">Range: -180 to 180</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4 pt-4">
-                                        <button
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-6 py-3 rounded-xl flex items-center gap-3 font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                                        >
-                                            {saving ? (
-                                                <>
-                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                    Saving...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Save className="w-5 h-5" />
-                                                    Save Location
-                                                </>
-                                            )}
-                                        </button>
-                                        {officeLocation && (
-                                            <button
-                                                onClick={handleCancel}
-                                                disabled={saving}
-                                                className="bg-slate-500 hover:bg-slate-600 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Cancel
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div>
-                                    <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 mb-8">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            <div className="text-center md:text-left">
-                                                <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                                    <Building2 className="w-5 h-5 text-blue-600" />
-                                                    <span className="text-sm font-semibold text-slate-600">Office Name</span>
-                                                </div>
-                                                <p className="text-lg font-semibold text-slate-900">{officeLocation?.name}</p>
-                                            </div>
-                                            <div className="text-center md:text-left">
-                                                <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                                    <Globe className="w-5 h-5 text-blue-600" />
-                                                    <span className="text-sm font-semibold text-slate-600">Latitude</span>
-                                                </div>
-                                                <p className="text-lg font-mono font-semibold text-slate-900">{officeLocation?.latitude}</p>
-                                            </div>
-                                            <div className="text-center md:text-left">
-                                                <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                                    <Globe className="w-5 h-5 text-blue-600" />
-                                                    <span className="text-sm font-semibold text-slate-600">Longitude</span>
-                                                </div>
-                                                <p className="text-lg font-mono font-semibold text-slate-900">{officeLocation?.longitude}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => setIsEditing(true)}
-                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl flex items-center gap-3 font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                                    >
-                                        <Edit2 className="w-5 h-5" />
-                                        Edit Location
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                <div className='flex items-center gap-3 py-2 px-3 rounded-xl w-full cursor-pointer'
+                    onClick={() => router.push('/manager/dashboard')}
+                >
+                    <SpaceDashboardIcon sx={{ fontSize: 20 }} />
+                    <span className='font-semibold'>Dashboard</span>
                 </div>
             </div>
-        </>
+
+            <div className='w-[80%] bg-white rounded-xl p-8 gap-6 overflow-y-auto scrollbar-hide'>
+                <div className='font-semibold text-xl text-text mb-6'>
+                    {isEditing ? 'Edit Office Location' : 'Office Location Settings'}
+                </div>
+
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+                        <p>{error}</p>
+                    </div>
+                )}
+
+                {!officeLocation && !isEditing ? (
+                    <div className="text-center py-12">
+                        <div className="p-6 bg-gray-100 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                            <LocationOnIcon sx={{ fontSize: 40, color: '#9ca3af' }} />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No office location configured</h3>
+                        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                            Configure your office location to enable location-based features for your team.
+                        </p>
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+                        >
+                            Configure Location
+                        </button>
+                    </div>
+                ) : isEditing ? (
+                    <div className='grid grid-cols-2 gap-6'>
+                        <div className='flex flex-col gap-2 col-span-2'>
+                            <label className='font-semibold text-gray-600'>Office Name</label>
+                            <input
+                                type="text"
+                                value={form.name}
+                                onChange={(e) => handleInputChange('name', e.target.value)}
+                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
+                                placeholder="Enter office name (e.g., Main Office, Delhi Branch)"
+                            />
+                        </div>
+
+                        <div className='flex flex-col gap-2'>
+                            <label className='font-semibold text-gray-600'>Latitude</label>
+                            <input
+                                type="number"
+                                step="any"
+                                value={form.latitude}
+                                onChange={(e) => handleInputChange('latitude', e.target.value)}
+                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
+                                placeholder="28.6139"
+                            />
+                            <p className="text-xs text-gray-500">Range: -90 to 90</p>
+                        </div>
+
+                        <div className='flex flex-col gap-2'>
+                            <label className='font-semibold text-gray-600'>Longitude</label>
+                            <input
+                                type="number"
+                                step="any"
+                                value={form.longitude}
+                                onChange={(e) => handleInputChange('longitude', e.target.value)}
+                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
+                                placeholder="77.2090"
+                            />
+                            <p className="text-xs text-gray-500">Range: -180 to 180</p>
+                        </div>
+
+                        <div className='col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4'>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <MyLocationIcon sx={{ fontSize: 20, color: '#d97706' }} />
+                                    <div>
+                                        <p className="font-semibold text-amber-800">Use Current Location</p>
+                                        <p className="text-sm text-amber-600">Automatically fill coordinates with your current position</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={getCurrentLocation}
+                                    disabled={gettingLocation}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${gettingLocation
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                        }`}
+                                >
+                                    {gettingLocation ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Getting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MyLocationIcon sx={{ fontSize: 16 }} />
+                                            Get Location
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className='bg-gray-50 rounded-lg p-6 mb-6'>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="text-center md:text-left">
+                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
+                                        <BusinessIcon sx={{ fontSize: 20, color: '#2563eb' }} />
+                                        <span className="text-sm font-semibold text-gray-600">Office Name</span>
+                                    </div>
+                                    <p className="text-lg font-semibold text-gray-900">{officeLocation?.name}</p>
+                                </div>
+                                <div className="text-center md:text-left">
+                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
+                                        <PublicIcon sx={{ fontSize: 20, color: '#2563eb' }} />
+                                        <span className="text-sm font-semibold text-gray-600">Latitude</span>
+                                    </div>
+                                    <p className="text-lg font-mono font-semibold text-gray-900">{officeLocation?.latitude}</p>
+                                </div>
+                                <div className="text-center md:text-left">
+                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
+                                        <PublicIcon sx={{ fontSize: 20, color: '#2563eb' }} />
+                                        <span className="text-sm font-semibold text-gray-600">Longitude</span>
+                                    </div>
+                                    <p className="text-lg font-mono font-semibold text-gray-900">{officeLocation?.longitude}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                        >
+                            <EditIcon sx={{ fontSize: 20 }} />
+                            Edit Location
+                        </button>
+                    </div>
+                )}
+
+                {isEditing && (
+                    <div className='flex gap-4 pt-4 border-t border-gray-200'>
+                        <button
+                            onClick={handleSave}
+                            disabled={!hasChanges || saving}
+                            className={`px-6 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${hasChanges && !saving
+                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                        >
+                            {saving && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            )}
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+
+                        <button
+                            onClick={handleCancel}
+                            disabled={saving}
+                            className={`px-6 py-2 rounded-lg font-semibold transition-colors ${!saving
+                                    ? 'bg-red-600 text-white hover:bg-red-700'
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                        >
+                            {officeLocation ? 'Cancel' : 'Discard Changes'}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 };
 
-export default Location;
+export default LocationManager;

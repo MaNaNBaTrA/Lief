@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/authContext'
+import Loader from '@/components/LottieLoader'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -47,13 +48,8 @@ export default function AuthGuard({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <div className="card w-96 bg-base-100 shadow-xl">
-          <div className="card-body text-center">
-            <span className="loading loading-spinner loading-lg"></span>
-            <p>Loading...</p>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader width={400} height={400} />
       </div>
     )
   }

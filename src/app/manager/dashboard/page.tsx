@@ -41,6 +41,8 @@ import {
   Group
 } from '@mui/icons-material'
 
+import Loader from '@/components/LottieLoader';
+
 interface User {
   id: string
   email: string
@@ -58,6 +60,7 @@ interface User {
   createdAt: string
   updatedAt: string
 }
+
 
 const ManagerUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([])
@@ -128,13 +131,13 @@ const ManagerUsersPage: React.FC = () => {
       })
 
       const currentUserResult = await currentUserResponse.json()
-      
+
       if (currentUserResult.errors) {
         throw new Error(currentUserResult.errors[0].message)
       }
 
       const currentUserData = currentUserResult.data.getUserById
-      
+
       if (!currentUserData) {
         throw new Error('User not found')
       }
@@ -187,14 +190,14 @@ const ManagerUsersPage: React.FC = () => {
         const phone = (user.number || '').toLowerCase()
         const query = searchQuery.toLowerCase()
 
-        return fullName.includes(query) || 
-               email.includes(query) || 
-               role.includes(query) || 
-               phone.includes(query)
+        return fullName.includes(query) ||
+          email.includes(query) ||
+          role.includes(query) ||
+          phone.includes(query)
       })
       setFilteredUsers(filtered)
     }
-    setPage(0) 
+    setPage(0)
   }, [searchQuery, users])
 
   const handleUserClick = (userId: string) => {
@@ -220,7 +223,7 @@ const ManagerUsersPage: React.FC = () => {
 
   const getRoleChip = (role?: string) => {
     const userRole = role?.toLowerCase() || 'care worker'
-    
+
     const roleColors: { [key: string]: 'primary' | 'secondary' | 'success' | 'warning' | 'error' } = {
       'manager': 'primary',
       'care worker': 'secondary',
@@ -228,9 +231,9 @@ const ManagerUsersPage: React.FC = () => {
     }
 
     return (
-      <Chip 
-        label={role || 'Care Worker'} 
-        color={roleColors[userRole] || 'secondary'} 
+      <Chip
+        label={role || 'Care Worker'}
+        color={roleColors[userRole] || 'secondary'}
         size="small"
         icon={userRole === 'manager' ? <ManageAccounts /> : <Work />}
       />
@@ -239,12 +242,9 @@ const ManagerUsersPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Loading users...
-        </Typography>
-      </Box>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader width={400} height={400} />
+      </div>
     )
   }
 
@@ -255,8 +255,8 @@ const ManagerUsersPage: React.FC = () => {
           <Typography variant="h6">Access Denied</Typography>
           <Typography variant="body2">{error}</Typography>
         </Alert>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => router.push('/')}
           sx={{ mt: 2 }}
         >
@@ -297,7 +297,7 @@ const ManagerUsersPage: React.FC = () => {
             </Box>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -311,7 +311,7 @@ const ManagerUsersPage: React.FC = () => {
             </Box>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -327,7 +327,7 @@ const ManagerUsersPage: React.FC = () => {
         </Card>
       </Box>
 
-      
+
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -348,7 +348,7 @@ const ManagerUsersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      
+
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -370,15 +370,15 @@ const ManagerUsersPage: React.FC = () => {
               </TableHead>
               <TableBody>
                 {paginatedUsers.map((user) => (
-                  <TableRow 
-                    key={user.id} 
-                    hover 
+                  <TableRow
+                    key={user.id}
+                    hover
                     sx={{ cursor: 'pointer' }}
                     onClick={() => handleUserClick(user.id)}
                   >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar 
+                        <Avatar
                           src={user.imageUrl || undefined}
                           sx={{ mr: 2, width: 40, height: 40 }}
                         >
@@ -386,7 +386,7 @@ const ManagerUsersPage: React.FC = () => {
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight="medium">
-                            {user.firstName && user.lastName 
+                            {user.firstName && user.lastName
                               ? `${user.firstName} ${user.lastName}`
                               : user.email
                             }
@@ -433,8 +433,8 @@ const ManagerUsersPage: React.FC = () => {
 
                     <TableCell align="center">
                       <Tooltip title="View Profile">
-                        <IconButton 
-                          color="primary" 
+                        <IconButton
+                          color="primary"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleUserClick(user.id)
@@ -463,7 +463,7 @@ const ManagerUsersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      
+
       {filteredUsers.length === 0 && !loading && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
@@ -473,7 +473,7 @@ const ManagerUsersPage: React.FC = () => {
                 No users found
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {searchQuery 
+                {searchQuery
                   ? 'Try adjusting your search criteria.'
                   : 'No users exist in the system yet.'
                 }
