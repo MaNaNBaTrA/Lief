@@ -30,7 +30,6 @@ const Analytics: React.FC = () => {
   const [todayHours, setTodayHours] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  //const [debugInfo, setDebugInfo] = useState<string>('')
 
   const getTodayAttendance = async (userId: string): Promise<number> => {
     try {
@@ -84,7 +83,6 @@ const Analytics: React.FC = () => {
 
       if (!result.data?.getAttendancesByUser) {
         console.log('No attendance data found')
-        //setDebugInfo(`No attendance records found for user ${userId}`)
         return 0
       }
 
@@ -97,7 +95,6 @@ const Analytics: React.FC = () => {
       })
 
       console.log('Today records found:', todayRecords)
-      //setDebugInfo(`Found ${todayRecords.length} records for today (${todayString})`)
 
       if (todayRecords.length === 0) {
         return 0
@@ -144,14 +141,14 @@ const Analytics: React.FC = () => {
 
   const formatHours = (hours: number): string => {
     if (hours === 0) return '0h 0m 0s'
-    
+
     const wholeHours = Math.floor(hours)
     const remainingMinutes = (hours - wholeHours) * 60
     const wholeMinutes = Math.floor(remainingMinutes)
     const seconds = Math.round((remainingMinutes - wholeMinutes) * 60)
-    
+
     const parts = []
-    
+
     if (wholeHours > 0) {
       parts.push(`${wholeHours}h`)
     }
@@ -161,7 +158,7 @@ const Analytics: React.FC = () => {
     if (seconds > 0 || parts.length === 0) {
       parts.push(`${seconds}s`)
     }
-    
+
     return parts.join(' ')
   }
 
@@ -181,8 +178,7 @@ const Analytics: React.FC = () => {
       try {
         setLoading(true)
         setError(null)
-        //setDebugInfo(`Fetching data for user: ${user.id}`)
-        
+
         const hours = await getTodayAttendance(user.id)
         setTodayHours(hours)
       } catch (err) {

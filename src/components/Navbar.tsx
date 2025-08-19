@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { LogOut, UserRoundCheck, Clock, MapPin } from 'lucide-react'
+import { LogOut, UserRoundCheck, Clock, MapPin, Menu, X, LayoutDashboard, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { User as SupabaseUser } from '@supabase/supabase-js'
@@ -62,6 +62,7 @@ const Navbar: React.FC = () => {
     const router = useRouter()
     const { showToast } = useToast()
     const [showPopup, setShowPopup] = useState<boolean>(false)
+    const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false)
     const [note, setNote] = useState<string>('')
     const [user, setUser] = useState<SupabaseUser | null>(null)
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
@@ -73,6 +74,7 @@ const Navbar: React.FC = () => {
     const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([])
     const [currentOffice, setCurrentOffice] = useState<OfficeLocation | null>(null)
     const intervalRef = useRef<NodeJS.Timeout | null>(null)
+    const mobileMenuRef = useRef<HTMLDivElement>(null)
 
     const isManager = (): boolean => {
         return userProfile?.role?.toLowerCase() === 'manager'
@@ -218,8 +220,11 @@ const Navbar: React.FC = () => {
                     office.longitude
                 )
 
+                console.log(`Distance to ${office.name}: ${distance.toFixed(2)}km (Allowed: ${ALLOWED_DISTANCE_KM}km)`)
+
                 if (distance <= ALLOWED_DISTANCE_KM) {
                     setCurrentOffice(office)
+                    console.log(`✓ Within perimeter of ${office.name}`)
                     return true
                 }
 
@@ -229,9 +234,11 @@ const Navbar: React.FC = () => {
                 }
             }
 
-            showToast(`You are ${nearestDistance.toFixed(2)}km away from ${nearestOffice.name}. Check-in requires being within ${ALLOWED_DISTANCE_KM}km of any office.`, 'warning')
+            setCurrentOffice(nearestOffice)
+            showToast(`You are ${nearestDistance.toFixed(2)}km away from the nearest office (${nearestOffice.name}). Check-in requires being within ${ALLOWED_DISTANCE_KM}km of any office location.`, 'warning')
             return false
         } catch (error) {
+            console.error('Location error:', error)
             showToast((error as Error).message, 'error')
             return false
         } finally {
@@ -625,11 +632,18 @@ const Navbar: React.FC = () => {
     }
 
     const handleDashboardClick = (): void => {
+        setShowMobileMenu(false)
         router.push('/manager/dashboard')
     }
 
     const handleLocationClick = (): void => {
+        setShowMobileMenu(false)
         router.push('/manager/location')
+    }
+
+    const handleProfileClick = (): void => {
+        setShowMobileMenu(false)
+        router.push('/profile')
     }
 
     const getUserDisplayName = (): string => {
@@ -662,6 +676,33 @@ const Navbar: React.FC = () => {
         }
         return true
     }
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+                setShowMobileMenu(false)
+            }
+        }
+
+        if (showMobileMenu) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [showMobileMenu])
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setShowMobileMenu(false)
+            }
+        }
+
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     useEffect(() => {
         const getCurrentUser = async (): Promise<void> => {
@@ -704,87 +745,317 @@ const Navbar: React.FC = () => {
     }
 
     return (
-        <header className="flex items-center py-4 px-16 justify-between bg-bg border-b-2 border-border">
-            <div>
-                <Image
-                    src="/Images/Lief.svg"
-                    width={150}
-                    height={150}
-                    alt="Lief"
-                    priority
-                />
-            </div>
+        <>
+            <header className="flex items-center py-2 px-4 sm:px-8 lg:px-16 justify-between bg-bg border-b-2 border-border relative">
+                <div>
+                    <Image
+                        src="/Images/Lief.svg"
+                        width={120}
+                        height={120}
+                        alt="Lief"
+                        priority
+                        className="w-20 h-20 sm:w-24 sm:h-24 lg:w-[120px] lg:h-[120px]"
+                    />
+                </div>
 
-            <nav className="flex items-center lg:gap-12 gap-6">
-                {isManager() && (
-                    <>
-                        <button
-                            type="button"
-                            className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer"
-                            onClick={handleDashboardClick}
-                        >
-                            Dashboard
-                        </button>
-
-                        <button
-                            type="button"
-                            className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer flex items-center gap-2"
-                            onClick={handleLocationClick}
-                        >
-                            <MapPin size={20} strokeWidth={1.7} />
-                            Location
-                        </button>
-                    </>
-                )}
-
-                <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="border border-text rounded-lg py-3 px-6 bg-white flex items-center gap-2 font-semibold hover:bg-gray-100 cursor-pointer"
-                >
-                    <LogOut color="#345e54" size={22} strokeWidth={1.7} />
-                    Log Out
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleCheckIn}
-                    disabled={!canPerformAction() || isLocationLoading}
-                    className={`${getButtonStyle()} ${(!canPerformAction() || isLocationLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                    {isLocationLoading ? (
+                <nav className="hidden lg:flex items-center gap-12">
+                    {isManager() && (
                         <>
-                            <Loader />
-                            Getting Location...
-                        </>
-                    ) : (
-                        <>
-                            {getButtonIcon()}
-                            {getButtonText()}
+                            <button
+                                type="button"
+                                className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer flex items-center gap-2"
+                                onClick={handleDashboardClick}
+                            >
+                                <LayoutDashboard size={20} strokeWidth={1.7}/>
+                                Dashboard
+                            </button>
+
+                            <button
+                                type="button"
+                                className="text-text font-semibold text-lg hover:text-brand transition-colors duration-500 cursor-pointer flex items-center gap-2"
+                                onClick={handleLocationClick}
+                            >
+                                <MapPin size={20} strokeWidth={1.7} />
+                                Location
+                            </button>
                         </>
                     )}
-                </button>
 
-                <button
-                    type="button"
-                    className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-2 border-gray-200 hover:border-brand transition-colors duration-300"
-                    onClick={() => router.push('/profile')}
-                    title={getUserDisplayName()}
-                >
-                    <Image
-                        src={userProfile?.imageUrl || Placeholder}
-                        alt={`${getUserDisplayName()} Profile`}
-                        width={48}
-                        height={48}
-                        className="object-cover w-full h-full"
-                        priority
-                    />
-                </button>
-            </nav>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="border border-text rounded-lg py-3 px-6 bg-white flex items-center gap-2 font-semibold hover:bg-gray-100 cursor-pointer"
+                    >
+                        <LogOut color="#345e54" size={22} strokeWidth={1.7} />
+                        Log Out
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleCheckIn}
+                        disabled={!canPerformAction() || isLocationLoading}
+                        className={`${getButtonStyle()} ${(!canPerformAction() || isLocationLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isLocationLoading ? (
+                            <>
+                                <Loader />
+                                Getting Location...
+                            </>
+                        ) : (
+                            <>
+                                {getButtonIcon()}
+                                {getButtonText()}
+                            </>
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="w-12 h-12 rounded-full overflow-hidden cursor-pointer border-2 border-gray-200 hover:border-brand transition-colors duration-300"
+                        onClick={handleProfileClick}
+                        title={getUserDisplayName()}
+                    >
+                        <Image
+                            src={userProfile?.imageUrl || Placeholder}
+                            alt={`${getUserDisplayName()} Profile`}
+                            width={48}
+                            height={48}
+                            className="object-cover w-full h-full"
+                            priority
+                        />
+                    </button>
+                </nav>
+
+                <div className="lg:hidden flex items-center gap-4">
+                    <button
+                        type="button"
+                        className="w-12 h-12 rounded-full overflow-hidden cursor-pointer border-2 border-gray-200 hover:border-brand transition-colors duration-300"
+                        onClick={handleProfileClick}
+                        title={getUserDisplayName()}
+                    >
+                        <Image
+                            src={userProfile?.imageUrl || Placeholder}
+                            alt={`${getUserDisplayName()} Profile`}
+                            width={48}
+                            height={48}
+                            className="object-cover w-full h-full"
+                            priority
+                        />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowMobileMenu(!showMobileMenu)}
+                        className="p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                        aria-label="Toggle menu"
+                    >
+                        {showMobileMenu ? (
+                            <X size={28} className="text-text" strokeWidth={2} />
+                        ) : (
+                            <Menu size={28} className="text-text" strokeWidth={2} />
+                        )}
+                    </button>
+                </div>
+
+                {showMobileMenu && (
+                    <div 
+                        ref={mobileMenuRef}
+                        className="absolute top-full right-4 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 lg:hidden max-h-[calc(100vh-120px)] overflow-y-auto"
+                    >
+                        <div className="p-4">
+                            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200">
+                                    <Image
+                                        src={userProfile?.imageUrl || Placeholder}
+                                        alt={`${getUserDisplayName()} Profile`}
+                                        width={40}
+                                        height={40}
+                                        className="object-cover w-full h-full"
+                                        priority
+                                    />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-text text-sm">{getUserDisplayName()}</p>
+                                    <p className="text-xs text-gray-500">{userProfile?.email}</p>
+                                    {userProfile?.role && (
+                                        <p className="text-xs text-brand font-medium capitalize">{userProfile.role}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="py-3 border-b border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowMobileMenu(false)
+                                        handleCheckIn()
+                                    }}
+                                    disabled={!canPerformAction() || isLocationLoading}
+                                    className={`w-full ${getButtonStyle()} justify-center text-sm ${(!canPerformAction() || isLocationLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {isLocationLoading ? (
+                                        <>
+                                            <Loader />
+                                            Getting Location...
+                                        </>
+                                    ) : (
+                                        <>
+                                            {getButtonIcon()}
+                                            {getButtonText()}
+                                        </>
+                                    )}
+                                </button>
+
+                                {isCheckedIn && currentAttendance && (
+                                    <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                                        <p className="text-xs text-gray-600">
+                                            <strong>Working Hours:</strong>
+                                        </p>
+                                        <p className="text-sm font-semibold text-brand">
+                                            {currentAttendance.totalHoursWorked || "0h 0m 0s"}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Checked in at {currentAttendance.checkInTime ? 
+                                                new Date(currentAttendance.checkInTime).toLocaleString("en-US", {
+                                                    timeZone: DEFAULT_TIMEZONE,
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                }) : 'N/A'
+                                            }
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {isManager() && (
+                                <div className="py-3 border-b border-gray-100 space-y-2">
+                                    <button
+                                        type="button"
+                                        className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                                        onClick={handleDashboardClick}
+                                    >
+                                        <LayoutDashboard size={16} strokeWidth={1.7} />
+                                        Dashboard
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                                        onClick={handleLocationClick}
+                                    >
+                                        <MapPin size={16} strokeWidth={1.7} />
+                                        Location Management
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="py-3 border-b border-gray-100">
+                                <button
+                                    type="button"
+                                    className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                                    onClick={handleProfileClick}
+                                >
+                                    <User size={16} strokeWidth={1.7} />
+                                    View Profile
+                                </button>
+                            </div>
+
+                            {currentLocation && officeLocations.length > 0 && (
+                                <div className="py-3 border-b border-gray-100">
+                                    <p className="text-xs text-gray-600 mb-2">
+                                        <strong>Location Status:</strong>
+                                    </p>
+                                    {(() => {
+                                        const withinPerimeterOffice = officeLocations.find(office => {
+                                            const distance = calculateDistance(
+                                                currentLocation.lat, 
+                                                currentLocation.lng, 
+                                                office.latitude, 
+                                                office.longitude
+                                            )
+                                            return distance <= ALLOWED_DISTANCE_KM
+                                        })
+
+                                        if (withinPerimeterOffice) {
+                                            const distance = calculateDistance(
+                                                currentLocation.lat, 
+                                                currentLocation.lng, 
+                                                withinPerimeterOffice.latitude, 
+                                                withinPerimeterOffice.longitude
+                                            )
+                                            return (
+                                                <div className="p-2 bg-green-50 rounded-lg border border-green-200">
+                                                    <p className="text-xs text-green-700 font-medium">
+                                                        ✓ Within {withinPerimeterOffice.name} perimeter
+                                                    </p>
+                                                    <p className="text-xs text-green-600 mt-1">
+                                                        Distance: {distance.toFixed(2)}km (Max: {ALLOWED_DISTANCE_KM}km)
+                                                    </p>
+                                                </div>
+                                            )
+                                        } else {
+                                            const nearestOffice = officeLocations.reduce((nearest, office) => {
+                                                const currentDistance = calculateDistance(
+                                                    currentLocation.lat, 
+                                                    currentLocation.lng, 
+                                                    office.latitude, 
+                                                    office.longitude
+                                                )
+                                                const nearestDistance = calculateDistance(
+                                                    currentLocation.lat, 
+                                                    currentLocation.lng, 
+                                                    nearest.latitude, 
+                                                    nearest.longitude
+                                                )
+                                                return currentDistance < nearestDistance ? office : nearest
+                                            })
+
+                                            const distance = calculateDistance(
+                                                currentLocation.lat, 
+                                                currentLocation.lng, 
+                                                nearestOffice.latitude, 
+                                                nearestOffice.longitude
+                                            )
+
+                                            return (
+                                                <div className="p-2 bg-red-50 rounded-lg border border-red-200">
+                                                    <p className="text-xs text-red-700 font-medium">
+                                                        ✗ Outside office perimeter
+                                                    </p>
+                                                    <p className="text-xs text-red-600 mt-1">
+                                                        Nearest: {nearestOffice.name} ({distance.toFixed(2)}km away)
+                                                    </p>
+                                                    <p className="text-xs text-red-500 mt-1">
+                                                        Required: Within {ALLOWED_DISTANCE_KM}km
+                                                    </p>
+                                                </div>
+                                            )
+                                        }
+                                    })()}
+                                </div>
+                            )}
+
+                            <div className="pt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowMobileMenu(false)
+                                        handleLogout()
+                                    }}
+                                    className="w-full border border-text rounded-lg py-2 px-4 bg-white flex items-center justify-center gap-2 font-semibold hover:bg-gray-100 cursor-pointer transition-colors duration-200 text-sm"
+                                >
+                                    <LogOut color="#345e54" size={18} strokeWidth={1.7} />
+                                    Log Out
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </header>
 
             {showPopup && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md mx-4">
                         <h2 className="text-lg font-semibold mb-4">
                             {isCheckedIn ? 'Check Out Note' : 'Check In Note'} (Optional)
                         </h2>
@@ -841,7 +1112,11 @@ const Navbar: React.FC = () => {
                     </div>
                 </div>
             )}
-        </header>
+
+            {showMobileMenu && (
+                <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
+            )}
+        </>
     )
 }
 

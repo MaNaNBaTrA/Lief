@@ -7,11 +7,7 @@ import Image from 'next/image'
 import UserAttendanceTable from '@/ui/Attendance'
 import Loader from '@/components/LottieLoader'
 import Placeholder from '../../public/Images/Profile-Placeholder.png'
-import PersonIcon from '@mui/icons-material/Person';
-import ModeEditIcon from '@mui/icons-material/ModeEdit';
-import HomeFilledIcon from '@mui/icons-material/HomeFilled';
-import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
-import EditLocationAltIcon from '@mui/icons-material/EditLocationAlt';
+import { User, Edit, Home, LayoutDashboard, MapPin, Menu, X } from 'lucide-react'
 
 interface User {
   id: string
@@ -46,6 +42,7 @@ const DynamicProfile = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [canAccess, setCanAccess] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const router = useRouter()
   const params = useParams()
@@ -173,28 +170,59 @@ const DynamicProfile = () => {
     }
   }, [userId, supabase])
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const sidebar = document.getElementById('mobile-sidebar')
+      const menuButton = document.getElementById('menu-button')
+
+      if (sidebarOpen && sidebar && !sidebar.contains(event.target as Node) &&
+        menuButton && !menuButton.contains(event.target as Node)) {
+        setSidebarOpen(false)
+      }
+    }
+
+    if (sidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [sidebarOpen])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const handleEditProfile = (): void => {
     if (currentUser?.id === user?.id || currentUser?.role?.toLowerCase() === 'manager') {
       router.push(`/profile/${userId}/edit`)
     } else {
       setError('You can only edit your own profile')
     }
+    setSidebarOpen(false)
   }
 
   const handleLocation = (): void => {
     router.push('/manager/location')
+    setSidebarOpen(false)
   }
 
   const handleDashboard = (): void => {
     router.push('/manager/dashboard')
+    setSidebarOpen(false)
   }
 
-  const handleBackToList = (): void => {
-    if (currentUser?.role?.toLowerCase() === 'manager') {
-      router.push('/manager/dashboard')
-    } else {
-      router.push('/')
-    }
+  const handleBackToHome = (): void => {
+    router.push('/')
+    setSidebarOpen(false)
   }
 
   const getUserDisplayName = (): string => {
@@ -211,13 +239,13 @@ const DynamicProfile = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center max-w-md w-full">
           <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg">
             <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
             <p className="mb-4">{error}</p>
             <button
-              onClick={handleBackToList}
+              onClick={handleBackToHome}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               Go Back
@@ -230,12 +258,12 @@ const DynamicProfile = () => {
 
   if (!user || !canAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center max-w-md w-full">
           <h2 className="text-2xl font-semibold text-gray-700">User not found</h2>
           <p className="text-gray-500 mt-2">The requested user could not be found or you don't have permission to view it.</p>
           <button
-            onClick={handleBackToList}
+            onClick={handleBackToHome}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Go Back
@@ -250,92 +278,225 @@ const DynamicProfile = () => {
   const isManager = currentUser?.role?.toLowerCase() === 'manager'
 
   return (
-    <div className='w-screen h-screen bg-bg p-8 flex gap-8'>
-      <div className='w-[20%]  bg-white rounded-xl flex flex-col items-center p-8 gap-4 sticky top-8'>
-        <div className='flex flex-col items-center gap-2'>
-          <div className="w-40 h-40 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center relative">
+    <div className='min-h-screen bg-bg'>
+      <header className="lg:hidden flex items-center py-2 px-4 justify-between bg-bg border-b-2 border-border sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200">
             <Image
               src={user.imageUrl || Placeholder}
               alt="Profile"
-              width={96}
-              height={96}
-              className="w-full h-full object-cover rounded-full"
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
               priority
             />
           </div>
-          <div className='font-semibold text-text text-2xl'>{getUserDisplayName()}</div>
-          <div className='font-semibold text-stext '>{user.role || 'Care Worker'}</div>
+          <div>
+            <h1 className="font-semibold text-lg text-text">{getUserDisplayName()}</h1>
+            <p className="text-sm text-gray-500">{user.role || 'Care Worker'}</p>
+          </div>
         </div>
-        <div className='flex items-center gap-3 bg-[#47f2ca80] py-2 px-3 rounded-xl w-full cursor-pointer'>
-          <PersonIcon />
-          <span className='font-semibold'>Personal Information</span>
-        </div>
-        <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full  cursor-pointer'
-          onClick={handleEditProfile}
+
+        <button
+          id="menu-button"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+          aria-label="Toggle menu"
         >
-          <ModeEditIcon />
-          <span className='font-semibold'>Edit</span>
-        </div>
-        <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
-          onClick={() => router.push('/')}
+          {sidebarOpen ? (
+            <X size={28} className="text-text" strokeWidth={2} />
+          ) : (
+            <Menu size={28} className="text-text" strokeWidth={2} />
+          )}
+        </button>
+      </header>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
+      )}
+
+      {sidebarOpen && (
+        <div
+          id="mobile-sidebar"
+          className="fixed top-[73px] right-4 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 lg:hidden max-h-[calc(100vh-120px)] overflow-y-auto"
         >
-          <HomeFilledIcon sx={{ fontSize: 20 }} />
-          <span className='font-semibold'>Back To Home</span>
-        </div>
-        {isManager &&
-          <>
-            <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
-              onClick={() => router.push('/manager/dashboard')}
-            >
-              <SpaceDashboardIcon />
-              <span className='font-semibold'>Dashboard</span>
+          <div className="p-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                <Image
+                  src={user.imageUrl || Placeholder}
+                  alt="Profile"
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                  priority
+                />
+              </div>
+              <div>
+                <p className="font-semibold text-text">{getUserDisplayName()}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+                {user.role && (
+                  <p className="text-xs text-brand font-medium capitalize">{user.role}</p>
+                )}
+              </div>
             </div>
-            <div className='flex items-center gap-3  py-2 px-3 rounded-xl w-full cursor-pointer '
-              onClick={() => router.push('/manager/location')}
-            >
-              <EditLocationAltIcon/>
-              <span className='font-semibold'>Office Location</span>
-            </div>
-          </>
-        }
-      </div>
-      
-      <div className='w-[80%]  overflow-y-auto '>
-        <div className='bg-white rounded-xl p-8 flex flex-col gap-6'>
-          <div className='font-semibold text-2xl text-text '>Personal Information</div>
-          <div className='grid grid-cols-3 gap-6'>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600 '>Gender</span>
-              <span className='text-text'>{user.gender || 'Not specified'}</span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600 '>Name</span>
-              <span className='text-text'>{getUserDisplayName()}</span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600 '>User ID</span>
-              <span className='font-mono text-sm bg-gray-100 px-2 py-1 rounded text-text'>{user.id}</span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600'>Email</span>
-              <span className='text-text'>{user.email}</span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600 '>Phone</span>
-              <span className='text-text'>{user.number || 'Not provided'}</span>
-            </div>
-            <div className='flex flex-col'>
-              <span className='font-semibold text-gray-600'>Address</span>
-              <span className='text-text'>{user.address || 'Not provided'}</span>
+
+            <div className="py-3 space-y-2">
+              <div className='flex items-center gap-3 bg-[#47f2ca80] p-2 rounded-lg w-full'>
+                <User size={16} className="text-text" strokeWidth={1.7} />
+                <span className='font-medium text-sm'>Personal Information</span>
+              </div>
+
+              {canEdit && (
+                <button
+                  type="button"
+                  className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                  onClick={handleEditProfile}
+                >
+                  <Edit size={16} strokeWidth={1.7} />
+                  Edit Profile
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                onClick={handleBackToHome}
+              >
+                <Home size={16} strokeWidth={1.7} />
+                Back To Home
+              </button>
+
+              {isManager && (
+                <>
+                  <button
+                    type="button"
+                    className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                    onClick={handleDashboard}
+                  >
+                    <LayoutDashboard size={16} strokeWidth={1.7} />
+                    Dashboard
+                  </button>
+
+                  <button
+                    type="button"
+                    className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2"
+                    onClick={handleLocation}
+                  >
+                    <MapPin size={16} strokeWidth={1.7} />
+                    Office Location
+                  </button>
+                </>
+              )}
             </div>
           </div>
-          
-          <div className='w-full'>
-            <UserAttendanceTable 
-              userId={userId}
-              showAllUsers={false}
-              maxRows={25} 
-            />
+        </div>
+      )}
+
+      <div className="lg:flex lg:gap-8 lg:p-8">
+        <div className="hidden lg:flex lg:w-80 bg-white rounded-xl flex-col  p-8">
+          <div className='flex flex-col items-center gap-4'>
+            <div className="w-40 h-40 rounded-full overflow-hidden bg-white bg-opacity-20 flex items-center justify-center relative border-2 border-gray-200">
+              <Image
+                src={user?.imageUrl || Placeholder}
+                alt="Profile"
+                width={160}
+                height={160}
+                className="w-full h-full object-cover rounded-full"
+                priority
+              />
+            </div>
+            <div className='font-semibold text-text text-2xl text-center'>{getUserDisplayName()}</div>
+            <div className='font-semibold text-stext text-center mb-4'>{user?.role || 'Care Worker'}</div>
+          </div>
+
+          <div className="w-full space-y-4">
+            <div className='flex items-center gap-3 bg-[#47f2ca80] py-3 px-4 rounded-xl w-full'>
+              <User size={20} strokeWidth={1.7} />
+              <span className='font-semibold'>Personal Information</span>
+            </div>
+
+            {canEdit && (
+              <div
+                className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+                onClick={handleEditProfile}
+              >
+                <Edit size={20} strokeWidth={1.7} />
+                <span className='font-semibold'>Edit</span>
+              </div>
+            )}
+
+            <div
+              className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+              onClick={handleBackToHome}
+            >
+              <Home size={20} strokeWidth={1.7} />
+              <span className='font-semibold'>Back To Home</span>
+            </div>
+
+            {isManager && (
+              <>
+                <div
+                  className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+                  onClick={handleDashboard}
+                >
+                  <LayoutDashboard size={20} strokeWidth={1.7} />
+                  <span className='font-semibold'>Dashboard</span>
+                </div>
+                <div
+                  className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+                  onClick={handleLocation}
+                >
+                  <MapPin size={20} strokeWidth={1.7} />
+                  <span className='font-semibold'>Office Location</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className='flex-1 p-4 lg:p-0'>
+          <div className='bg-white rounded-xl p-4 lg:p-8 flex flex-col gap-6'>
+            <div>
+              <div className='font-semibold text-xl lg:text-2xl text-text mb-6'>Personal Information</div>
+              <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6'>
+                <div className='flex flex-col'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>Gender</span>
+                  <span className='text-text mt-1'>{user?.gender || 'Not specified'}</span>
+                </div>
+                <div className='flex flex-col'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>Name</span>
+                  <span className='text-text mt-1'>{getUserDisplayName()}</span>
+                </div>
+                <div className='flex flex-col sm:col-span-2 lg:col-span-1'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>User ID</span>
+                  <span className='font-mono text-xs lg:text-sm bg-gray-100 px-2 py-1 rounded text-text mt-1 break-all w-fit'>{user?.id}</span>
+                </div>
+                <div className='flex flex-col'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>Email</span>
+                  <span className='text-text mt-1 break-all'>{user?.email}</span>
+                </div>
+                <div className='flex flex-col'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>Phone</span>
+                  <span className='text-text mt-1'>{user?.number || 'Not provided'}</span>
+                </div>
+                <div className='flex flex-col sm:col-span-2 lg:col-span-1'>
+                  <span className='font-semibold text-gray-600 text-sm lg:text-base'>Address</span>
+                  <span className='text-text mt-1'>{user?.address || 'Not provided'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className='font-semibold text-lg lg:text-xl text-text mb-4'>Attendance Records</h3>
+              <div className='w-full overflow-x-auto'>
+                <UserAttendanceTable
+                  userId={userId}
+                  showAllUsers={false}
+                  maxRows={25}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

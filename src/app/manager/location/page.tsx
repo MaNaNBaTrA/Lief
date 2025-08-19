@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import EditIcon from '@mui/icons-material/Edit';
-import BusinessIcon from '@mui/icons-material/Business';
-import PublicIcon from '@mui/icons-material/Public';
-import MyLocationIcon from '@mui/icons-material/MyLocation';
-import HomeFilledIcon from '@mui/icons-material/HomeFilled';
-import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
+import { MapPin, Edit, Building, Globe, Locate, Home, LayoutDashboard, Menu, X } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
 import Loader from '@/components/LottieLoader';
 
@@ -49,6 +43,7 @@ const LocationManager = () => {
     const [gettingLocation, setGettingLocation] = useState<boolean>(false);
     const [hasChanges, setHasChanges] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const { showToast } = useToast();
     const router = useRouter();
@@ -120,6 +115,37 @@ const LocationManager = () => {
     useEffect(() => {
         fetchOfficeLocation();
     }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const sidebar = document.getElementById('mobile-sidebar')
+            const menuButton = document.getElementById('menu-button')
+            
+            if (sidebarOpen && sidebar && !sidebar.contains(event.target as Node) && 
+                menuButton && !menuButton.contains(event.target as Node)) {
+                setSidebarOpen(false)
+            }
+        }
+
+        if (sidebarOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [sidebarOpen])
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setSidebarOpen(false)
+            }
+        }
+
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     const handleInputChange = (field: string, value: string) => {
         setForm(prev => ({ ...prev, [field]: value }));
@@ -279,6 +305,16 @@ const LocationManager = () => {
         showToast('Changes discarded', 'info');
     };
 
+    const handleDashboard = (): void => {
+        router.push('/manager/dashboard')
+        setSidebarOpen(false)
+    }
+
+    const handleBackToHome = (): void => {
+        router.push('/')
+        setSidebarOpen(false)
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -288,200 +324,283 @@ const LocationManager = () => {
     }
 
     return (
-        <div className='w-screen h-full bg-bg p-8 flex gap-8'>
-            <div className='w-[20%] h-[calc(100vh-4rem)] bg-white rounded-xl flex flex-col items-center p-8 gap-4 sticky top-8'>
-                <div className='flex flex-col items-center gap-2'>
-                    <div className="w-40 h-40 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
-                        <BusinessIcon sx={{ fontSize: 80, color: '#2563eb' }} />
+        <div className='min-h-screen bg-bg'>
+            <header className="lg:hidden flex items-center py-2 px-4 justify-between bg-bg border-b-2 border-border sticky top-0 z-50">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-200 bg-blue-100 flex items-center justify-center cursor-pointer">
+                        <Building size={20} className="text-blue-600" />
                     </div>
-                    <div className='font-semibold text-text text-2xl'>Location Manager</div>
-                    <div className='font-semibold text-stext'>Office Settings</div>
-                </div>
-
-                <div className='flex items-center gap-3 bg-[#47f2ca80] py-2 px-3 rounded-xl w-full cursor-pointer'>
-                    <LocationOnIcon sx={{ fontSize: 20 }} />
-                    <span className='font-semibold'>Edit Location</span>
-                </div>
-
-                <div className='flex items-center gap-3 py-2 px-3 rounded-xl w-full cursor-pointer'
-                    onClick={() => router.push('/')}
-                >
-                    <HomeFilledIcon sx={{ fontSize: 20 }} />
-                    <span className='font-semibold'>Back To Home</span>
-                </div>
-
-                <div className='flex items-center gap-3 py-2 px-3 rounded-xl w-full cursor-pointer'
-                    onClick={() => router.push('/manager/dashboard')}
-                >
-                    <SpaceDashboardIcon sx={{ fontSize: 20 }} />
-                    <span className='font-semibold'>Dashboard</span>
-                </div>
-            </div>
-
-            <div className='w-[80%] bg-white rounded-xl p-8 gap-6 overflow-y-auto scrollbar-hide'>
-                <div className='font-semibold text-xl text-text mb-6'>
-                    {isEditing ? 'Edit Office Location' : 'Office Location Settings'}
-                </div>
-
-                {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
-                        <p>{error}</p>
+                    <div>
+                        <h1 className="font-semibold text-lg text-text">Location Manager</h1>
+                        <p className="text-sm text-gray-500">Office Settings</p>
                     </div>
-                )}
+                </div>
+                
+                <button
+                    id="menu-button"
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className="p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                    aria-label="Toggle menu"
+                >
+                    {sidebarOpen ? (
+                        <X size={28} className="text-text" strokeWidth={2} />
+                    ) : (
+                        <Menu size={28} className="text-text" strokeWidth={2} />
+                    )}
+                </button>
+            </header>
 
-                {!officeLocation && !isEditing ? (
-                    <div className="text-center py-12">
-                        <div className="p-6 bg-gray-100 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                            <LocationOnIcon sx={{ fontSize: 40, color: '#9ca3af' }} />
+            {sidebarOpen && (
+                <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
+            )}
+
+            {sidebarOpen && (
+                <div 
+                    id="mobile-sidebar"
+                    className="fixed top-[73px] right-4 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 lg:hidden max-h-[calc(100vh-120px)] overflow-y-auto"
+                >
+                    <div className="p-4">
+                        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-blue-200 bg-blue-100 flex items-center justify-center cursor-pointer">
+                                <Building size={24} className="text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-text">Location Manager</p>
+                                <p className="text-xs text-gray-500">Office Settings</p>
+                            </div>
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No office location configured</h3>
-                        <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                            Configure your office location to enable location-based features for your team.
-                        </p>
-                        <button
-                            onClick={() => setIsEditing(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+
+                        <div className="py-3 space-y-2">
+                            <div className='flex items-center gap-3 bg-[#47f2ca80] p-2 rounded-lg w-full'>
+                                <MapPin size={16} className="text-text" strokeWidth={1.7} />
+                                <span className='font-medium text-sm'>Edit Location</span>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2 cursor-pointer"
+                                onClick={handleBackToHome}
+                            >
+                                <Home size={16} strokeWidth={1.7} />
+                                Back To Home
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-text font-medium text-sm flex items-center gap-2 cursor-pointer"
+                                onClick={handleDashboard}
+                            >
+                                <LayoutDashboard size={16} strokeWidth={1.7} />
+                                Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="lg:flex lg:gap-8 lg:p-8 lg:h-screen">
+                <div className="hidden lg:flex lg:w-80 bg-white rounded-xl flex-col p-8 h-full">
+                    <div className='flex flex-col items-center gap-4 mb-8'>
+                        <div className="w-40 h-40 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center border-2 border-blue-200 cursor-pointer">
+                            <Building size={80} className="text-blue-600" />
+                        </div>
+                        <div className='font-semibold text-text text-2xl text-center'>Location Manager</div>
+                        <div className='font-semibold text-stext text-center'>Office Settings</div>
+                    </div>
+
+                    <div className="w-full space-y-4">
+                        <div className='flex items-center gap-3 bg-[#47f2ca80] py-3 px-4 rounded-xl w-full'>
+                            <MapPin size={20} strokeWidth={1.7} />
+                            <span className='font-semibold'>Edit Location</span>
+                        </div>
+
+                        <div 
+                            className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+                            onClick={handleBackToHome}
                         >
-                            Configure Location
-                        </button>
+                            <Home size={20} strokeWidth={1.7} />
+                            <span className='font-semibold'>Back To Home</span>
+                        </div>
+
+                        <div 
+                            className='flex items-center gap-3 hover:bg-gray-50 py-3 px-4 rounded-xl w-full cursor-pointer transition-colors'
+                            onClick={handleDashboard}
+                        >
+                            <LayoutDashboard size={20} strokeWidth={1.7} />
+                            <span className='font-semibold'>Dashboard</span>
+                        </div>
                     </div>
-                ) : isEditing ? (
-                    <div className='grid grid-cols-2 gap-6'>
-                        <div className='flex flex-col gap-2 col-span-2'>
-                            <label className='font-semibold text-gray-600'>Office Name</label>
-                            <input
-                                type="text"
-                                value={form.name}
-                                onChange={(e) => handleInputChange('name', e.target.value)}
-                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
-                                placeholder="Enter office name (e.g., Main Office, Delhi Branch)"
-                            />
-                        </div>
+                </div>
 
-                        <div className='flex flex-col gap-2'>
-                            <label className='font-semibold text-gray-600'>Latitude</label>
-                            <input
-                                type="number"
-                                step="any"
-                                value={form.latitude}
-                                onChange={(e) => handleInputChange('latitude', e.target.value)}
-                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
-                                placeholder="28.6139"
-                            />
-                            <p className="text-xs text-gray-500">Range: -90 to 90</p>
-                        </div>
+                <div className='flex-1 p-4 lg:p-0 min-h-screen lg:min-h-0 lg:h-full'>
+                    <div className='bg-white rounded-xl p-4 lg:p-8 flex flex-col gap-6 h-full'>
+                        <div className='flex-1 overflow-y-auto'>
+                            <div className='font-semibold text-xl lg:text-2xl text-text mb-6'>
+                                {isEditing ? 'Edit Office Location' : 'Office Location Settings'}
+                            </div>
 
-                        <div className='flex flex-col gap-2'>
-                            <label className='font-semibold text-gray-600'>Longitude</label>
-                            <input
-                                type="number"
-                                step="any"
-                                value={form.longitude}
-                                onChange={(e) => handleInputChange('longitude', e.target.value)}
-                                className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors'
-                                placeholder="77.2090"
-                            />
-                            <p className="text-xs text-gray-500">Range: -180 to 180</p>
-                        </div>
+                            {error && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+                                    <p className="text-sm lg:text-base">{error}</p>
+                                </div>
+                            )}
 
-                        <div className='col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4'>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <MyLocationIcon sx={{ fontSize: 20, color: '#d97706' }} />
-                                    <div>
-                                        <p className="font-semibold text-amber-800">Use Current Location</p>
-                                        <p className="text-sm text-amber-600">Automatically fill coordinates with your current position</p>
+                            {!officeLocation && !isEditing ? (
+                                <div className="text-center py-8 lg:py-12">
+                                    <div className="p-6 bg-gray-100 rounded-full w-20 h-20 lg:w-24 lg:h-24 mx-auto mb-6 flex items-center justify-center cursor-pointer">
+                                        <MapPin size={32} className="text-gray-500 lg:w-10 lg:h-10" />
+                                    </div>
+                                    <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-2">No office location configured</h3>
+                                    <p className="text-gray-600 mb-6 lg:mb-8 max-w-md mx-auto text-sm lg:text-base">
+                                        Configure your office location to enable location-based features for your team.
+                                    </p>
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        className="bg-[#47f2ca80] hover:bg-[#47f2ca] text-gray-900 px-6 lg:px-8 py-2 lg:py-3 rounded-lg font-medium transition-colors text-sm lg:text-base cursor-pointer"
+                                    >
+                                        Configure Location
+                                    </button>
+                                </div>
+                            ) : isEditing ? (
+                                <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6'>
+                                    <div className='flex flex-col gap-2 lg:col-span-2'>
+                                        <label className='font-semibold text-gray-600 text-sm lg:text-base'>Office Name</label>
+                                        <input
+                                            type="text"
+                                            value={form.name}
+                                            onChange={(e) => handleInputChange('name', e.target.value)}
+                                            className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm lg:text-base cursor-text'
+                                            placeholder="Enter office name (e.g., Main Office, Delhi Branch)"
+                                        />
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label className='font-semibold text-gray-600 text-sm lg:text-base'>Latitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={form.latitude}
+                                            onChange={(e) => handleInputChange('latitude', e.target.value)}
+                                            className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm lg:text-base cursor-text'
+                                            placeholder="28.6139"
+                                        />
+                                        <p className="text-xs text-gray-500">Range: -90 to 90</p>
+                                    </div>
+
+                                    <div className='flex flex-col gap-2'>
+                                        <label className='font-semibold text-gray-600 text-sm lg:text-base'>Longitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={form.longitude}
+                                            onChange={(e) => handleInputChange('longitude', e.target.value)}
+                                            className='text-text p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm lg:text-base cursor-text'
+                                            placeholder="77.2090"
+                                        />
+                                        <p className="text-xs text-gray-500">Range: -180 to 180</p>
+                                    </div>
+
+                                    <div className='lg:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4'>
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div className="flex items-start gap-3">
+                                                <Locate size={20} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                                                <div>
+                                                    <p className="font-semibold text-amber-800 text-sm lg:text-base">Use Current Location</p>
+                                                    <p className="text-xs lg:text-sm text-amber-600">Automatically fill coordinates with your current position</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={getCurrentLocation}
+                                                disabled={gettingLocation}
+                                                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm lg:text-base flex-shrink-0 cursor-pointer ${gettingLocation
+                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-[#47f2ca80] hover:bg-[#47f2ca] text-gray-900'
+                                                    }`}
+                                            >
+                                                {gettingLocation ? (
+                                                    <>
+                                                        <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                                                        Getting...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Locate size={20} />
+                                                        Get Location
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            ) : (
+                                <div>
+                                    <div className='bg-gray-50 rounded-lg p-4 lg:p-6 mb-6'>
+                                        <div className="grid grid-cols-1 gap-4 lg:gap-6">
+                                            <div className="text-left px-4">
+                                                <div className="flex items-center gap-2 mb-2 justify-start">
+                                                    <Building size={20} className="text-blue-600" />
+                                                    <span className="text-sm font-semibold text-gray-600">Office Name</span>
+                                                </div>
+                                                <p className="text-base lg:text-lg font-semibold text-gray-900">{officeLocation?.name}</p>
+                                            </div>
+                                            <div className="text-left px-4">
+                                                <div className="flex items-center gap-2 mb-2 justify-start">
+                                                    <Globe size={20} className="text-blue-600" />
+                                                    <span className="text-sm font-semibold text-gray-600">Latitude</span>
+                                                </div>
+                                                <p className="text-base lg:text-lg font-mono font-semibold text-gray-900">{officeLocation?.latitude}</p>
+                                            </div>
+                                            <div className="text-left px-4">
+                                                <div className="flex items-center gap-2 mb-2 justify-start">
+                                                    <Globe size={20} className="text-blue-600" />
+                                                    <span className="text-sm font-semibold text-gray-600">Longitude</span>
+                                                </div>
+                                                <p className="text-base lg:text-lg font-mono font-semibold text-gray-900">{officeLocation?.longitude}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        className="bg-[#47f2ca80] hover:bg-[#47f2ca] text-gray-900 px-4 lg:px-6 py-2 lg:py-3 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm lg:text-base cursor-pointer"
+                                    >
+                                        <Edit size={20}  />
+                                        Edit Location
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {isEditing && (
+                            <div className='flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200 mt-auto'>
                                 <button
-                                    onClick={getCurrentLocation}
-                                    disabled={gettingLocation}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${gettingLocation
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                    onClick={handleSave}
+                                    disabled={!hasChanges || saving}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm lg:text-base cursor-pointer ${hasChanges && !saving
+                                            ? 'bg-[#47f2ca80] text-gray-900 hover:bg-[#47f2ca]'
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         }`}
                                 >
-                                    {gettingLocation ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            Getting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <MyLocationIcon sx={{ fontSize: 16 }} />
-                                            Get Location
-                                        </>
+                                    {saving && (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                                     )}
+                                    {saving ? 'Saving...' : 'Save Changes'}
+                                </button>
+
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={saving}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-colors text-sm lg:text-base cursor-pointer ${!saving
+                                            ? 'bg-red-500 text-white hover:bg-red-600 '
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        }`}
+                                >
+                                    {officeLocation ? 'Cancel' : 'Discard Changes'}
                                 </button>
                             </div>
-                        </div>
+                        )}
                     </div>
-                ) : (
-                    <div>
-                        <div className='bg-gray-50 rounded-lg p-6 mb-6'>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="text-center md:text-left">
-                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                        <BusinessIcon sx={{ fontSize: 20, color: '#2563eb' }} />
-                                        <span className="text-sm font-semibold text-gray-600">Office Name</span>
-                                    </div>
-                                    <p className="text-lg font-semibold text-gray-900">{officeLocation?.name}</p>
-                                </div>
-                                <div className="text-center md:text-left">
-                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                        <PublicIcon sx={{ fontSize: 20, color: '#2563eb' }} />
-                                        <span className="text-sm font-semibold text-gray-600">Latitude</span>
-                                    </div>
-                                    <p className="text-lg font-mono font-semibold text-gray-900">{officeLocation?.latitude}</p>
-                                </div>
-                                <div className="text-center md:text-left">
-                                    <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                                        <PublicIcon sx={{ fontSize: 20, color: '#2563eb' }} />
-                                        <span className="text-sm font-semibold text-gray-600">Longitude</span>
-                                    </div>
-                                    <p className="text-lg font-mono font-semibold text-gray-900">{officeLocation?.longitude}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => setIsEditing(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                        >
-                            <EditIcon sx={{ fontSize: 20 }} />
-                            Edit Location
-                        </button>
-                    </div>
-                )}
-
-                {isEditing && (
-                    <div className='flex gap-4 pt-4 border-t border-gray-200'>
-                        <button
-                            onClick={handleSave}
-                            disabled={!hasChanges || saving}
-                            className={`px-6 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${hasChanges && !saving
-                                    ? 'bg-green-600 text-white hover:bg-green-700'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                        >
-                            {saving && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            )}
-                            {saving ? 'Saving...' : 'Save Changes'}
-                        </button>
-
-                        <button
-                            onClick={handleCancel}
-                            disabled={saving}
-                            className={`px-6 py-2 rounded-lg font-semibold transition-colors ${!saving
-                                    ? 'bg-red-600 text-white hover:bg-red-700'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                        >
-                            {officeLocation ? 'Cancel' : 'Discard Changes'}
-                        </button>
-                    </div>
-                )}
+                </div>
             </div>
         </div>
     );

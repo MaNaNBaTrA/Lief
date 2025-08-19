@@ -82,13 +82,23 @@ const LineChart: React.FC = () => {
 
   const options: ChartOptions<'line'> = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, position: 'top' },
+      legend: { 
+        display: true, 
+        position: 'top',
+        labels: {
+          padding: 15,
+          font: {
+            size: 12
+          }
+        }
+      },
       title: {
         display: true,
         text: 'Monthly Hours Worked',
-        font: { size: 20, weight: 'bold' },
-        padding: { bottom: 25 },
+        font: { size: 18, weight: 'bold' },
+        padding: { bottom: 20 },
       },
       tooltip: { enabled: true },
     },
@@ -99,25 +109,35 @@ const LineChart: React.FC = () => {
         title: {
           display: true,
           text: 'Hours',
-          font: { size: 14, weight: 'bold' },
+          font: { size: 12, weight: 'bold' },
         },
         grid: {
           color: '#eee',
         },
+        ticks: {
+          font: {
+            size: 11
+          }
+        }
       },
       x: {
         title: {
           display: true,
           text: 'Month',
-          font: { size: 14, weight: 'bold' },
+          font: { size: 12, weight: 'bold' },
         },
         grid: { display: false },
+        ticks: {
+          font: {
+            size: 11
+          }
+        }
       },
     },
   }
 
   return (
-    <div className="w-full bg-white p-6 rounded-lg shadow-lg h-full ">
+    <div className="w-full bg-white p-4 sm:p-6 rounded-lg shadow-lg h-[350px] sm:h-[400px] lg:h-full">
       <Line ref={chartRef} data={data} options={options} />
     </div>
   )

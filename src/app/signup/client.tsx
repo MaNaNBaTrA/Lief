@@ -8,7 +8,6 @@ import { useToast } from '@/context/ToastContext';
 import Main from '../../../public/Images/Lief.svg';
 import Illustration from '../../../public/Images/Illustration.png';
 
-
 const SignUpPage: React.FC = () => {
     const [email, setEmail] = useState<string>('');
     const [password, setPassword] = useState<string>('');
@@ -34,14 +33,6 @@ const SignUpPage: React.FC = () => {
         router.push('/signin');
     };
 
-    const TermsClick = () => {
-        router.push('/terms');
-    };
-
-    const PrivacyClick = () => {
-        router.push('/privacy');
-    };
-
     const isValidEmail = (email: string): boolean => {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     };
@@ -65,7 +56,6 @@ const SignUpPage: React.FC = () => {
 
     const passwordValidation = getPasswordValidation();
     const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-
 
     async function checkUserExists(email: string): Promise<{ exists: boolean; error?: string }> {
         const query = `
@@ -102,7 +92,6 @@ const SignUpPage: React.FC = () => {
             }
 
             const json = await res.json();
-            console.log('CheckUser response:', json);
 
             if (json.errors && json.errors.length > 0) {
                 const errorMessage = json.errors[0]?.message || 'Unknown error occurred';
@@ -178,8 +167,6 @@ const SignUpPage: React.FC = () => {
             }
 
             const json = await res.json();
-            console.log('CreateUser response:', json);
-
 
             if (json.errors && json.errors.length > 0) {
                 const errorMessage = json.errors[0]?.message || 'Unknown database error';
@@ -189,7 +176,6 @@ const SignUpPage: React.FC = () => {
                     error: `Profile creation failed: ${errorMessage}`
                 };
             }
-
 
             if (json.data && json.data.createUser) {
                 return { success: true, user: json.data.createUser };
@@ -210,7 +196,6 @@ const SignUpPage: React.FC = () => {
     }
 
     const handleSignUp = async () => {
-
         if (!email || !password || !confirmPassword) {
             showToast('Please fill in all required fields', 'warning');
             return;
@@ -234,8 +219,6 @@ const SignUpPage: React.FC = () => {
         setPasswordLoading(true);
 
         try {
-
-            console.log('Step 1: Checking if user exists...');
             const userCheck = await checkUserExists(email.trim().toLowerCase());
 
             if (userCheck.error) {
@@ -252,10 +235,6 @@ const SignUpPage: React.FC = () => {
                 return;
             }
 
-            console.log('User does not exist, proceeding with signup...');
-
-
-            console.log('Step 2: Creating Supabase user...');
             showToast('Creating your account...', 'info');
 
             const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -269,7 +248,6 @@ const SignUpPage: React.FC = () => {
             if (authError) {
                 console.error('Supabase auth error:', authError);
                 let errorMessage = 'Account creation failed';
-
 
                 if (authError.message.includes('Email rate limit exceeded')) {
                     errorMessage = 'Too many signup attempts. Please try again in a few minutes.';
@@ -291,10 +269,6 @@ const SignUpPage: React.FC = () => {
                 return;
             }
 
-            console.log('Supabase user created:', authData.user.id);
-
-
-            console.log('Step 3: Creating user profile in database...');
             showToast('Setting up your profile...', 'info');
 
             const profileResult = await addUserToPrisma(authData.user.id, authData.user.email!);
@@ -302,13 +276,9 @@ const SignUpPage: React.FC = () => {
             if (!profileResult.success) {
                 console.error('Profile creation error:', profileResult.error);
                 showToast(`Profile setup failed: ${profileResult.error || 'Unknown error'}`, 'error');
-
-
                 showToast('Your account was created but profile setup is incomplete. Please try signing in.', 'warning');
                 return;
             }
-
-            console.log('Profile created successfully:', profileResult.user);
 
             showToast('Account created successfully! Please check your email to verify your account before signing in.', 'success');
 
@@ -367,7 +337,7 @@ const SignUpPage: React.FC = () => {
     const isAnyLoading = passwordLoading || googleLoading;
 
     return (
-        <main className='flex justify-center  min-h-screen lg:justify-start '>
+        <main className='flex justify-center min-h-screen lg:justify-start'>
             <section className='w-full max-w-md lg:w-2/5 lg:max-w-none bg-base-100 flex flex-col justify-center lg:justify-start'>
                 <div className='w-full px-8 py-8'>
                     <Image
@@ -377,7 +347,7 @@ const SignUpPage: React.FC = () => {
                         alt='Lief'
                     />
                 </div>
-                <div className='w-full flex-1 flex justify-center  lg:px-0  pt-4'>
+                <div className='w-full flex-1 flex justify-center lg:px-0 pt-4'>
                     <div className='w-full sm:max-w-sm lg:max-w-none lg:w-7/10 flex flex-col max-w-none px-12 sm:px-0'>
                         <div className="flex flex-col gap-2">
                             <span className="text-3xl font-semibold">Create your account</span>
@@ -419,7 +389,7 @@ const SignUpPage: React.FC = () => {
                                     />
                                 </label>
                                 {password && focusedInput === 'password' && (
-                                    <div className="absolute left-full ml-4 top-12 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64">
+                                    <div className="absolute top-full mt-2 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-full max-[920px]:top-full max-[920px]:mt-2 max-[920px]:w-full min-[921px]:left-full min-[921px]:ml-4 min-[921px]:top-12 min-[921px]:w-64">
                                         <div className="text-xs font-medium text-gray-700 mb-2">Password Requirements:</div>
                                         <div className="space-y-1">
                                             <div className={`text-xs flex items-center gap-2 ${passwordValidation.hasMinLength ? 'text-green-600' : 'text-red-600'}`}>
@@ -443,8 +413,10 @@ const SignUpPage: React.FC = () => {
                                                 <span>Contains lowercase letter</span>
                                             </div>
                                         </div>
-                                        <div className="absolute left-[-6px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-gray-200"></div>
-                                        <div className="absolute left-[-5px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-white"></div>
+                                        <div className="hidden min-[921px]:block absolute left-[-6px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-gray-200"></div>
+                                        <div className="hidden min-[921px]:block absolute left-[-5px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-white"></div>
+                                        <div className="block min-[921px]:hidden absolute top-[-6px] left-4 w-0 h-0 border-l-[6px] border-r-[6px] border-b-[6px] border-l-transparent border-r-transparent border-b-gray-200"></div>
+                                        <div className="block min-[921px]:hidden absolute top-[-5px] left-4 w-0 h-0 border-l-[6px] border-r-[6px] border-b-[6px] border-l-transparent border-r-transparent border-b-white"></div>
                                     </div>
                                 )}
                             </div>
@@ -468,13 +440,13 @@ const SignUpPage: React.FC = () => {
                                     />
                                 </label>
                                 {confirmPassword && focusedInput === 'confirmPassword' && (
-                                    <div className="absolute left-full ml-4 top-12 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-48">
+                                    <div className="absolute top-full mt-2 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-full min-[920px]:left-full min-[920px]:ml-4 min-[920px]:top-12 min-[920px]:w-48">
                                         <div className={`text-xs flex items-center gap-2 ${passwordsMatch ? 'text-green-600' : 'text-red-600'}`}>
                                             <span>{passwordsMatch ? '✓' : '✗'}</span>
                                             <span>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</span>
                                         </div>
-                                        <div className="absolute left-[-6px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-gray-200"></div>
-                                        <div className="absolute left-[-5px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-white"></div>
+                                        <div className="hidden min-[920px]:block absolute left-[-6px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-gray-200"></div>
+                                        <div className="hidden min-[920px]:block absolute left-[-5px] top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[6px] border-t-transparent border-b-transparent border-r-white"></div>
                                     </div>
                                 )}
                             </div>
@@ -512,7 +484,7 @@ const SignUpPage: React.FC = () => {
                                 {passwordLoading ? 'Creating Account...' : 'Create Account'}
                             </button>
                         </div>
-                        <div className="text-sm font-medium flex gap-1 justify-center  mt-8">
+                        <div className="text-sm font-medium flex gap-1 justify-center mt-8">
                             <span>Already have an account?</span>
                             <span className="underline cursor-pointer" onClick={SigninClick}>Sign In Now</span>
                         </div>
@@ -528,7 +500,6 @@ const SignUpPage: React.FC = () => {
                     priority
                 />
             </section>
-
         </main>
     );
 };

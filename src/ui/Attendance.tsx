@@ -551,7 +551,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
                       </TableCell>
                     </TableRow>
                     
-                    {/* Expanded Details Row */}
                     <TableRow>
                       <TableCell colSpan={showAllUsers ? 9 : 8} sx={{ py: 0, border: 0 }}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>

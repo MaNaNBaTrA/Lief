@@ -49,7 +49,7 @@ const ToastContainer: React.FC = () => {
   return (
     <>
       {toasts.map((toast) => (
-        <div key={toast.id} className="toast toast-top toast-end">
+        <div key={toast.id} className="toast toast-top toast-end z-50">
           <div className={`alert ${getAlertClass(toast.type)}`}>
             <span>{toast.message}</span>
           </div>
