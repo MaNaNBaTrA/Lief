@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/context/authContext'
+import Work from './Work'
 
 interface AttendanceRecord {
   userId: string
@@ -260,6 +261,8 @@ const Analytics: React.FC = () => {
           {formatHours(todayHours)}
         </div>
       </div>
+      <Work/>
+    
     </div>
   )
 }
