@@ -167,14 +167,14 @@ const Detail : React.FC = () => {
   const fullName = getUserDisplayName()
 
   return (
-    <div className='bg-white w-19/20 rounded-xl mt-6 p-6 flex flex-col gap-8'>
+    <div className='bg-white w-19/20 rounded-xl mt-6 p-6 flex flex-col gap-8 shadow-lg'>
       <div className='w-full font-semibold text-text text-lg'>Care Worker Details</div>
-      <div className='flex items-center gap-8'>
+      <div className='flex flex-col items-center text-center gap-6 sm:flex-row sm:items-center sm:text-left sm:gap-8'>
         <ProfileImage />
-        <div className='flex flex-col gap-2'>
+        <div className='flex flex-col gap-2 w-full sm:flex-1'>
           <div className='font-semibold text-text'>{fullName}</div>
           <div className='text-sm text-gray-600'>{user.role || 'Care Worker'}</div>
-          <div className='flex items-center gap-12 mt-2'>
+          <div className='flex flex-wrap gap-6 lg:gap-12 mt-2 justify-center sm:justify-start'>
             {Object.entries(Data).map(([key, value]) => (
               <div key={key} className='flex flex-col gap-2'>
                 <div className='text-xs text-stext font-semibold'>{key}</div>
@@ -194,7 +194,8 @@ const Detail : React.FC = () => {
           </div>
         </div>
       </div>
-      <div className='flex justify-around'>
+
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
         <Card icon={<UserRoundCheck/>} title='13 Days' subtitle='Total Attendance' iconBg='bg-bzero'/>
         <Card icon={<ClockPlus/>} title='7 Days' subtitle='Late Attendance' iconBg='bg-bone'/>
         <Card icon={<Clock2/>} title='1 Days' subtitle='Undertime Attendance' iconBg='bg-btwo'/>

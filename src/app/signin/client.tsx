@@ -200,9 +200,9 @@ const SignInPage: React.FC = () => {
     const isAnyLoading = passwordLoading || magicLoading || googleLoading
 
     return (
-        <main className='flex '>
-            <section className='w-2/5 bg-base-100 h-screen'>
-                <div className='w-full h-[15%] flex items-center pl-10'>
+        <main className='flex justify-center min-h-screen lg:justify-start'>
+            <section className='w-full max-w-md lg:w-2/5 lg:max-w-none bg-base-100 flex flex-col justify-center lg:justify-start'>
+                <div className='w-full px-8 py-8'>
                     <Image
                         src={Main}
                         width={110}
@@ -210,8 +210,8 @@ const SignInPage: React.FC = () => {
                         alt='Lief'
                     />
                 </div>
-                <div className='w-full h-[75%] center'>
-                    <div className='h-full w-7/10 flex flex-col'>
+                <div className='w-full flex-1 flex justify-center lg:px-0 pt-4'>
+                    <div className='w-full sm:max-w-sm lg:max-w-none lg:w-7/10 flex flex-col max-w-none px-12 sm:px-0'>
                         <div className="flex flex-col gap-2">
                             <span className="text-3xl font-semibold">Welcome back</span>
                             <span className="text-sm font-medium text-base-content/70">Sign in to your account</span>
@@ -301,19 +301,14 @@ const SignInPage: React.FC = () => {
                                 }
                             </button>
                         </div>
-                        <div className="text-sm font-medium flex gap-1 center mt-8">
+                        <div className="text-sm font-medium flex gap-1 justify-center mt-8">
                             <span>Don't have an account?</span>
                             <span className="underline cursor-pointer" onClick={SignupClick}>Sign Up Now</span>
                         </div>
                     </div>
                 </div>
-                <div className='w-full h-[10%] text-xs font-medium center'>
-                    <div className="w-7/10 text-center">
-                        By continuing, you agree to Lief's <span onClick={TermsClick} className="underline cursor-pointer decoration-info">Terms of Service</span> and <span className="underline cursor-pointer decoration-info" onClick={PrivacyClick}>Privacy Policy</span>, and to receive periodic emails with updates.
-                    </div>
-                </div>
             </section>
-            <section className="relative w-3/5 bg-base-200 h-screen ">
+            <section className="hidden lg:flex relative w-3/5 bg-base-200">
                 <Image
                     src={Illustration}
                     alt="Illustration"

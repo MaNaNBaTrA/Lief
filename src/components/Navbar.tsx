@@ -715,7 +715,7 @@ const Navbar: React.FC = () => {
                 />
             </div>
 
-            <nav className="flex items-center gap-12">
+            <nav className="flex items-center lg:gap-12 gap-6">
                 {isManager() && (
                     <>
                         <button

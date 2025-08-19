@@ -93,7 +93,7 @@ const Chart: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-white  rounded-xl p-6 ">
+    <div className="w-full bg-white  rounded-xl p-6 min-h-96 mb-6 shadow-lg ">
       <Bar data={data} options={options} />
     </div>
   )

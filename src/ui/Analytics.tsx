@@ -252,7 +252,7 @@ const Analytics: React.FC = () => {
   }
 
   return (
-    <div className='w-full bg-white rounded-xl items-center p-6 flex flex-col gap-2 h-fit'>
+    <div className='w-full bg-white rounded-xl items-center p-6 flex flex-col gap-2 h-full shadow-lg'>
       <div className='w-full flex justify-between items-center'>
         <div>
           <div className='text-text text-lg font-semibold mb-2'>Today's Work Duration</div>

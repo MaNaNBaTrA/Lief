@@ -117,7 +117,7 @@ const LineChart: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-white p-6 rounded-lg shadow-lg">
+    <div className="w-full bg-white p-6 rounded-lg shadow-lg h-full ">
       <Line ref={chartRef} data={data} options={options} />
     </div>
   )
