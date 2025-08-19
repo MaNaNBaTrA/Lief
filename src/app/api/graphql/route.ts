@@ -515,10 +515,10 @@ const server = new ApolloServer({
 
 const handler = startServerAndCreateNextHandler(server)
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, context: { params: any }) {
   return handler(request)
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, context: { params: any }) {
   return handler(request)
 }
