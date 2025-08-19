@@ -12,9 +12,6 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  //console.log('Middleware pathname:', pathname)
-  //console.log('Session:', !!session)
-
   const publicPaths = ['/signin', '/signup', '/auth/callback']
   const isPublicPath = publicPaths.includes(pathname)
 
@@ -36,14 +33,6 @@ export async function middleware(request: NextRequest) {
     if (pathname === '/' && userRole === 'manager') {
       return NextResponse.redirect(new URL('/manager', request.url))
     }
-
-    // if (pathname === '/dashboard' && userRole === 'manager') {
-    //   return NextResponse.redirect(new URL('/manager/dashboard', request.url))
-    // }
-    
-    // if (pathname.startsWith('/manager') && userRole !== 'manager') {
-    //   return NextResponse.redirect(new URL('/', request.url))
-    // }
   }
 
   return response

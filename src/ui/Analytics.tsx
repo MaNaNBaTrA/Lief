@@ -41,8 +41,6 @@ const Analytics: React.FC = () => {
         day: 'numeric'
       }).format(today)
 
-      console.log('Fetching attendance for userId:', userId)
-      console.log('Today string:', todayString)
 
       const response = await fetch('/api/graphql', {
         method: 'POST',
@@ -68,14 +66,12 @@ const Analytics: React.FC = () => {
         }),
       })
 
-      console.log('Response status:', response.status)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const result: GraphQLResponse<GetAttendanceResponse> = await response.json()
-      console.log('GraphQL result:', result)
 
       if (result.errors && result.errors.length > 0) {
         console.error('GraphQL errors:', result.errors)
@@ -83,19 +79,14 @@ const Analytics: React.FC = () => {
       }
 
       if (!result.data?.getAttendancesByUser) {
-        console.log('No attendance data found')
         return 0
       }
 
-      console.log('All attendance records:', result.data.getAttendancesByUser)
-      console.log('Looking for records with date:', todayString)
 
       const todayRecords = result.data.getAttendancesByUser.filter(record => {
-        console.log('Comparing record date:', record.date, 'with today:', todayString)
         return record.date === todayString
       })
 
-      console.log('Today records found:', todayRecords)
 
       if (todayRecords.length === 0) {
         return 0
@@ -103,15 +94,12 @@ const Analytics: React.FC = () => {
 
       let totalHours = 0
       todayRecords.forEach(record => {
-        console.log('Processing record totalHoursWorked:', record.totalHoursWorked)
         if (record.totalHoursWorked) {
           const parsedHours = parseTimeStringToHours(record.totalHoursWorked)
-          console.log('Parsed hours:', parsedHours)
           totalHours += parsedHours
         }
       })
 
-      console.log('Total hours calculated:', totalHours)
       return totalHours
     } catch (err) {
       console.error('Error in getTodayAttendance:', err)
@@ -166,12 +154,10 @@ const Analytics: React.FC = () => {
   useEffect(() => {
     const fetchTodayHours = async () => {
       if (authLoading) {
-        console.log('Still loading authentication...')
         return
       }
 
       if (!user?.id) {
-        console.log('No authenticated user found')
         setLoading(false)
         return
       }

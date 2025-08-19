@@ -147,29 +147,20 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
       let variables: Record<string, any> = {}
       let targetUserId: string = ''
 
-      console.log('Component props:', { userId, showAllUsers, dateFilter })
-      console.log('Current authenticated user:', authUser.id)
 
       if (showAllUsers && dateFilter) {
-        console.log('Fetching all users attendance for date:', dateFilter)
         query = GET_ALL_ATTENDANCES_BY_DATE
         variables = { date: dateFilter }
       } else {
         if (userId && userId.trim() !== '') {
           targetUserId = userId.trim()
-          console.log('Using provided userId (PRIORITY):', targetUserId)
         } else {
           targetUserId = authUser.id
-          console.log('Using authenticated user ID (FALLBACK):', targetUserId)
         }
 
-        console.log('Final targetUserId selected:', targetUserId)
         query = GET_USER_ATTENDANCES
         variables = { userId: targetUserId }
       }
-
-      console.log('GraphQL Query:', query)
-      console.log('Variables:', variables)
 
       const response = await fetch('/api/graphql', {
         method: 'POST',
@@ -187,7 +178,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
       }
 
       const result = await response.json()
-      console.log('GraphQL Response:', result)
 
       if (result.errors && result.errors.length > 0) {
         throw new Error(result.errors[0].message || 'GraphQL error occurred')
@@ -201,14 +191,12 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
         ? result.data.getAttendancesByDate 
         : result.data.getAttendancesByUser
 
-      console.log('Processed attendance data:', data)
       
       let filteredData = data || []
       if (userId && userId.trim() !== '' && !showAllUsers) {
         filteredData = filteredData.filter((attendance: Attendance) => 
           attendance.userId === userId.trim()
         )
-        console.log('Filtered data for userId:', userId, filteredData)
       }
 
       setAttendances(filteredData)
@@ -222,8 +210,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
   }
 
   useEffect(() => {
-    console.log('Component props changed:', { userId, showAllUsers, dateFilter })
-    console.log('userId type and value:', typeof userId, userId)
     
     const timeoutId = setTimeout(() => {
       fetchAttendances()
@@ -232,16 +218,6 @@ const UserAttendanceTable: React.FC<UserAttendanceTableProps> = ({
     return () => clearTimeout(timeoutId)
   }, [userId, showAllUsers, dateFilter])
 
-  useEffect(() => {
-    console.log('Attendance data received:', attendances)
-    if (attendances.length > 0) {
-      console.log('First attendance record:', attendances[0])
-      console.log('User IDs in attendance data:', attendances.map(a => a.userId))
-      console.log('Expected userId:', userId)
-      console.log('checkInTime:', attendances[0].checkInTime, 'Type:', typeof attendances[0].checkInTime)
-      console.log('checkOutTime:', attendances[0].checkOutTime, 'Type:', typeof attendances[0].checkOutTime)
-    }
-  }, [attendances, userId])
 
   const parseDateTime = (dateTime?: string | null): Date | null => {
     if (!dateTime || typeof dateTime !== 'string') return null

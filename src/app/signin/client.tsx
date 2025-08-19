@@ -88,7 +88,6 @@ const SignInPage: React.FC = () => {
             }
 
             if (data.user) {
-                console.log('Sign in successful')
                 showToast('Successfully signed in!', 'success');
                 router.push('/')
             }
